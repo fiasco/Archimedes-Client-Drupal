@@ -1,0 +1,115 @@
+<?php
+
+/**
+* Implementation of hook_menu().
+*/
+function archimedes_client_menu() {
+  $items = array();
+  $items['archimedes'] = array(
+    'title' => t('Archimedes'),
+    'page callback' => 'archimedes_out',
+    'access arguments' => array('access content'),
+    'description' => t('Archimedes Output'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+} // archimedes_client_menu()
+
+
+function archimedes_out() {
+  
+  global $db_url;
+  $db = parse_url($db_url);
+  $dbName = substr($db['path'],1);
+  
+  $header = array('Component', 'Value');
+  $rows = array();
+  
+  $rows[] = array('Site title',variable_get('site_name', "unknown"));
+  $rows[] = array('Discription','[[Store in Server Node]]');
+  $rows[] = array('Servername',$_SERVER["SERVER_NAME"]);
+  $rows[] = array('Web Server',a_shell_exec("hostname -f"));
+  $rows[] = array('Web Root',$_SERVER["DOCUMENT_ROOT"]);
+  $rows[] = array('DB Host',$db['host']);
+  $rows[] = array('DB Name',$dbName);
+  
+  
+  
+  // Is this a git repo?
+  if (file_exists('.git') && is_dir('.git')) {
+/*    $git_exists = 'which git;';
+    $git_hash = isset($git_exists) ? 'git rev-parse HEAD' : NULL;
+
+    if ( isset($git_hash) ) {
+      $general['git_head'] = rtrim($git_hash);
+      $general['git_origin'] = rtrim('git config remote.origin.url');
+      $general['git_local_branch'] = rtrim('git name-rev --name-only HEAD');
+      $general['git_remote_branch'] = shell_exec('git config branch.' . $general['git_local_branch'] . '.merge');
+      var_dump($general);
+    }*/
+  }
+  
+  $rows[] = array('Git Repositories','[[Yet to do]]');
+  
+  $result = db_query("SELECT u.mail FROM {users} u WHERE u.status = 1");
+  $users = array();
+  while ($u = db_fetch_object($result)) {
+    if (endsWith($u->mail,'catalyst.net.nz'))
+        $users[] = $u->mail;
+  }
+  $rows[] = array('Users',implode(', ',$users));
+  $rows[] = array('DB Size',db_result(db_query("SELECT pg_database_size('".$dbName."')"))); // curently only works for pgsql
+  
+  $dataSize = preg_split('/[\s]+/',a_shell_exec("du -bsL ".$_SERVER['DOCUMENT_ROOT'].base_path().file_directory_path()));
+  $rootSize = preg_split('/[\s]+/',a_shell_exec("du -bsL ".$_SERVER['DOCUMENT_ROOT'].base_path()));
+  
+  $rows[] = array('Site Data Size',$dataSize[0]);
+  $rows[] = array('Webroot Size',$rootSize[0]);
+  $rows[] = array('User Count',db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1); // subtract one for public user
+  
+  $result = db_query("SELECT d.name, d.info, d.type FROM {system} d");
+  $modules = array();
+  $themes = array();
+  while ($d = db_fetch_object($result)) {
+    $info = unserialize($d->info);
+    if ($d->type == 'module')
+      $modules[] = array($d->name,$info['version']);
+    elseif ($d->type == 'theme')
+      $themes[] = array($d->name,$info['version']);
+  }
+  $header = array('Name','Version');
+  
+  $rows[] = array('Modules',theme('table',$header,$modules));
+  $rows[] = array('Themes',theme('table',$header,$themes));
+  $rows[] = array('Mnet','[[Yet to do]]');
+  
+  
+ 
+  
+  return theme('table', $header, $rows);
+  
+  
+} // archimedes_out()
+
+
+
+/**
+* Utility functions.
+*/
+function endsWith( $str, $sub ) {
+   return ( substr( $str, strlen( $str ) - strlen( $sub ) ) === $sub );
+}
+
+function a_shell_exec($cmd) {
+  $args = func_get_args();
+
+  //do not change the command itself, just the parameters.
+  for ($x = 1; $x < sizeof($args); $x++) {
+    $args[$x] = escapeshellarg($args[$x]);
+  }
+  $command = call_user_func_array('sprintf', $args);
+
+  exec($command . ' 2>&1', $output, $result);
+  
+  return $output[0];
+}
