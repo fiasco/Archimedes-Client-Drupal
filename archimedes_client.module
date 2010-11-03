@@ -1,5 +1,7 @@
 <?php
 
+include "archimedes.class.php";
+
 /**
 * Implementation of hook_menu().
 */
@@ -17,90 +19,180 @@ function archimedes_client_menu() {
 
 
 function archimedes_out() {
+  $data = archimedes_update();
   
-  global $db_url;
-  $db = parse_url($db_url);
-  $dbName = substr($db['path'],1);
-  
-  $header = array('Component', 'Value');
-  $rows = array();
-  
-  $rows[] = array('Site title',variable_get('site_name', "unknown"));
-  $rows[] = array('Discription','[[Store in Server Node]]');
-  $rows[] = array('Servername',$_SERVER["SERVER_NAME"]);
-  $rows[] = array('Web Server',a_shell_exec("hostname -f"));
-  $rows[] = array('Web Root',$_SERVER["DOCUMENT_ROOT"]);
-  $rows[] = array('DB Host',$db['host']);
-  $rows[] = array('DB Name',$dbName);
-  
-  
-  
-  // Is this a git repo?
-  if (file_exists('.git') && is_dir('.git')) {
-/*    $git_exists = 'which git;';
-    $git_hash = isset($git_exists) ? 'git rev-parse HEAD' : NULL;
-
-    if ( isset($git_hash) ) {
-      $general['git_head'] = rtrim($git_hash);
-      $general['git_origin'] = rtrim('git config remote.origin.url');
-      $general['git_local_branch'] = rtrim('git name-rev --name-only HEAD');
-      $general['git_remote_branch'] = shell_exec('git config branch.' . $general['git_local_branch'] . '.merge');
-      var_dump($general);
-    }*/
-  }
-  
-  $rows[] = array('Git Repositories','[[Yet to do]]');
-  
-  $result = db_query("SELECT u.mail FROM {users} u WHERE u.status = 1");
-  $users = array();
-  while ($u = db_fetch_object($result)) {
-    if (endsWith($u->mail,'catalyst.net.nz'))
-        $users[] = $u->mail;
-  }
-  $rows[] = array('Users',implode(', ',$users));
-  $rows[] = array('DB Size',db_result(db_query("SELECT pg_database_size('".$dbName."')"))); // curently only works for pgsql
-  
-  $dataSize = preg_split('/[\s]+/',a_shell_exec("du -bsL ".$_SERVER['DOCUMENT_ROOT'].base_path().file_directory_path()));
-  $rootSize = preg_split('/[\s]+/',a_shell_exec("du -bsL ".$_SERVER['DOCUMENT_ROOT'].base_path()));
-  
-  $rows[] = array('Site Data Size',$dataSize[0]);
-  $rows[] = array('Webroot Size',$rootSize[0]);
-  $rows[] = array('User Count',db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1); // subtract one for public user
-  
-  $result = db_query("SELECT d.name, d.info, d.type FROM {system} d");
-  $modules = array();
-  $themes = array();
-  while ($d = db_fetch_object($result)) {
-    $info = unserialize($d->info);
-    if ($d->type == 'module')
-      $modules[] = array($d->name,$info['version']);
-    elseif ($d->type == 'theme')
-      $themes[] = array($d->name,$info['version']);
-  }
   $header = array('Name','Version');
   
-  $rows[] = array('Modules',theme('table',$header,$modules));
-  $rows[] = array('Themes',theme('table',$header,$themes));
-  $rows[] = array('Mnet','[[Yet to do]]');
+  $rows = array(
+    array('Site title',$data['title']->value),
+    array('Description',$data['description']->value),
+    array('Servername',implode(', ',$data['field_servername']->value)),
+    array('Web Server',implode(', ',$data['field_webserver']->value)),
+    array('Web Root',$data['field_webroot']->value),
+    array('DB Host',$data['field_dbhost']->value),
+    array('DB Name',$data['field_dbname']->value),
+    array('Users',implode(', ',$data['field_users']->value)),
+    array('DB Size',$data['field_db_size']->value),
+    array('Site Data Size',$data['field_sitedata']->value),
+    array('Webroot Size',$data['field_sitesize']->value),
+    array('User Count',$data['field_num_users']->value),
+    array('Modules',theme('table',$header,$data['field_drupal_mod']->value)),
+    array('Themes',theme('table',$header,$data['field_drupal_theme']->value)),
+  );
   
   
- 
-  
+  $rows = array_merge($rows, module_invoke_all('archimedes_rows', $data));
+  $a = new Archimedes();
+//  $a->toXML($data);
+  $header = array('Component', 'Value');
   return theme('table', $header, $rows);
   
   
 } // archimedes_out()
 
+function archimedes_update() {
+  
+  global $db_url;
+  
+  $owl = new Archimedes();
+  
+  $field = $owl->createField('title', 'text');
+  $field->addValue(variable_get('site_name', "unknown"));
+  
+  $field = $owl->createField('description', 'text');
+  $field->addValue("[[Yet to do]]");
+  
+  $field = $owl->createField('field_servername', 'uri');
+  $field->invokeMulti();
+  $field->addValue($_SERVER["SERVER_NAME"]);
+  
+  $db = parse_url($db_url);
+  $dbName = substr($db['path'],1);
+  
+  $data = array(
+    'title' => (object) array(
+      'facet' => FALSE,
+      'multi' => FALSE,
+      'value' => variable_get('site_name', "unknown"),
+    ),
+    'description' => (object) array(
+      'facet' => FALSE,
+      'multi' => FALSE,
+      'value' => '[[Yet to Do]]', // find place to store this info
+    ),
+    'field_servername' => (object) array(
+      'facet' => FALSE,
+      'multi' => TRUE,
+      'value' => array(), // data loaded below
+    ),
+    'field_webserver' => (object) array(
+      'facet' => FALSE,
+      'multi' => TRUE,
+      'value' => array(), // data loaded below
+    ),
+    'field_webroot' => (object) array(
+      'facet' => FALSE,
+      'multi' => FALSE,
+      'value' => $_SERVER["DOCUMENT_ROOT"],
+    ),
+    'field_dbhost' => (object) array(
+      'facet' => TRUE,
+      'multi' => FALSE,
+      'value' => $db['host'],
+    ),
+    'field_dbname' => (object) array(
+      'facet' => FALSE,
+      'multi' => FALSE,
+      'value' => $dbName,
+    ),
+    'field_users' => (object) array(
+      'facet' => TRUE,
+      'multi' => TRUE,
+      'value' => array(), // data loaded below
+    ),
+    'field_db_size' => (object) array(
+      'facet' => FALSE,
+      'multi' => FALSE,
+      'value' => db_result(db_query("SELECT pg_database_size('".$dbName."')")), // curently only works for pgsql
+    ),
+    'field_site_data' => (object) array(
+      'facet' => FALSE,
+      'multi' => FALSE,
+      'value' => '', // data loaded below
+    ),
+    'field_sitesize' => (object) array(
+      'facet' => FALSE,
+      'multi' => FALSE,
+      'value' => '', // data loaded below
+    ),
+    'field_num_users' => (object) array(
+      'facet' => FALSE,
+      'multi' => FALSE,
+      'value' => db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1, // subtract one for public user
+    ),
+    'field_drupal_mod' => (object) array(
+      'facet' => TRUE,
+      'multi' => TRUE,
+      'value' => array(), // data loaded below
+    ),
+    'field_drupal_theme' => (object) array(
+      'facet' => TRUE,
+      'multi' => TRUE,
+      'value' => array(), // data loaded below
+    ),
+  );
+  $data['field_servername']->value[] = $_SERVER["SERVER_NAME"]; // Only current viewable here. Need a way to get others.
+  $data['field_webserver']->value[] = archimedes_shell_exec("hostname -f"); // Only current viewable here. Need a way to get others.
+  
+  $owl = new Archimedes();
+  $field = $owl->createField('field_servername', 'node_reference');
+  $field->facet = TRUE;
+  $field->multi = TRUE;
+  $field->value = 'web.chiron';
+  $field->title = 'web.chiron';
+  $field->body = 'blah';
+  $owl->addField($field);
 
+  $baseclass = "ArchimedesField";
+  $extendedclass = $baseclass . '_' . $type;
+  return new $extendedclass();
+  
+  $result = db_query("SELECT u.mail FROM {users} u WHERE u.status = 1");
+  while ($u = db_fetch_object($result)) {
+    if (archimedes_ends_with($u->mail,'@catalyst.net.nz')) // admin to set this value and store in variable table
+        $data['field_users']->value[] = $u->mail;
+  }
+  
+  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL ".$_SERVER['DOCUMENT_ROOT'].base_path().file_directory_path()));
+  $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL ".$_SERVER['DOCUMENT_ROOT'].base_path()));
+  
+  $data['field_sitedata']->value = $dataSize[0];
+  $data['field_sitesize']->value = $rootSize[0];
+  
+  $result = db_query("SELECT d.name, d.info, d.type FROM {system} d");
+  while ($d = db_fetch_object($result)) {
+    $info = unserialize($d->info);
+    if ($d->type == 'module')
+      $data['field_drupal_mod']->value[] = array($d->name,$info['version']);
+    elseif ($d->type == 'theme')
+      $data['field_drupal_theme']->value[] = array($d->name,$info['version']);
+  }
+  
+  $data = array_merge($data, module_invoke_all('archimedes_fields', $data));
+  
+  return $data;
+  
+  
+} // archimedes_update()
 
 /**
 * Utility functions.
 */
-function endsWith( $str, $sub ) {
+function archimedes_ends_with( $str, $sub ) {
    return ( substr( $str, strlen( $str ) - strlen( $sub ) ) === $sub );
-}
+} // archimedes_ends_with()
 
-function a_shell_exec($cmd) {
+function archimedes_shell_exec($cmd) {
   $args = func_get_args();
 
   //do not change the command itself, just the parameters.
@@ -112,4 +204,4 @@ function a_shell_exec($cmd) {
   exec($command . ' 2>&1', $output, $result);
   
   return $output[0];
-}
+} // archimedes_shell_exec()
