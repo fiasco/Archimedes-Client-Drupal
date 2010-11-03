@@ -1,7 +1,7 @@
 <?php
 class Archimedes {
   
-  public $fields;
+  public $fields = array();
   
   public function __construct() {
     /*$root = '<?xml version="1.0" encoding="UTF-8" ?><node/>';*/
@@ -18,62 +18,87 @@ class Archimedes {
     $baseclass = "ArchimedesField";
     $extendedclass = $baseclass . '_' . $type;
     $field = new $extendedclass($fieldID);
-    $this->addField($field);
+    $this->addField($fieldID,$field); // fieldId is now saved twice. Better fix this.
     return $field;
+  }
+  
+  private function addField($fieldID,$field) {
+    $this->fields[$fieldID] = $field;
+  }
+  
+  public function getField($fieldID) {
+    return $this->fields[$fieldID];
   }
   
 }
 
 Class ArchimedesField {
   
-  private $faceted = FALSE;
+  private $facet = FALSE;
   private $multi = FALSE;
   private $type = '';
-  private $value;
+  private $value = array();
   public $fieldID;
   protected $namespace = '';
   
-  public function setValue($value) {
-    $this->value = $value;
+  public function addValue($value,$index=null) {
+    if (isset($index))
+      $this->value[$index] = $value;
+    else
+      $this->value[] = $value;
     return $this;
   }
   
-  public function getValue($value) {
-    return $this-value;
+  public function getValues() {
+    if ($this->multi)
+      return $this->value;
+    else
+      return implode(', ',$this->value);
   }
   
-  public function invokeFaceting() {
-    $this->faceted = TRUE;
+  public function setType($type) {
+    $this->type = $type;
     return $this;
   }
   
-  public function revokeFaceting() {
-    $this->faceted = FALSE;
+  public function getType($type) {
+    return $this->type;
+  }
+  
+  public function invokeMulti() {
+    $this->multi = TRUE;
     return $this;
   }
   
-  public function addValue($value) {
-    $node = $this->addChild("value", $value);
+  public function revokeMulti() {
+    $this->multi = FALSE;
     return $this;
-  } 
+  }
+  
+  public function invokeFacet() {
+    $this->facet = TRUE;
+    return $this;
+  }
+  
+  public function revokeFacet() {
+    $this->facet = FALSE;
+    return $this;
+  }
   
 }
-
-/* $field = $owl->createfield('field_drupal_mod', 'node_reference');
-$field->addNamespace('monitor-plugin:drupal-module', 'module');
-foreach ($modules as $module) {
-  $value = $field->addValue(TRUE);
-  $value->addAttribute('type', 'drupal_module')
-        ->addAttribute('title', $module->title)
-        ->addAttribute('field_drumod', $module->name)
-        ->AddAttribute('version', $module->version, 'module');
-}
-*/
 
 Class ArchimedesField_text extends ArchimedesField {
   public function __construct($fieldID) {
     $this->fieldID = $fieldID;
-    $this->type = 'text';
+    $this->setType('text');
+  }
+}
+
+Class ArchimedesField_uri extends ArchimedesField {
+  public function __construct($fieldID) {
+    $this->fieldID = $fieldID;
+    $this->setType('uri');
+    $this->invokeMulti();
   }
 }
 
@@ -81,8 +106,22 @@ Class ArchimedesField_node_reference extends ArchimedesField {
   public function __construct($fieldID) {
     $this->fieldID = $fieldID;
     $this->namespace = 'node';
-    $this->type = 'node_reference';
-    $this->value = $value;
-    //$xml->addAttribute("xmlns:node","monitor:node");
+    $this->setType('node_reference');
+    $this->invokeFacet();
+  }
+}
+
+Class ArchimedesField_user_reference extends ArchimedesField {
+  public function __construct($fieldID) {
+    $this->fieldID = $fieldID;
+    $this->setType('user_reference');
+    $this->invokeFacet();
+    $this->invokeMulti();
+  }
+}
+Class ArchimedesField_integer extends ArchimedesField {
+  public function __construct($fieldID) {
+    $this->fieldID = $fieldID;
+    $this->setType('integer');
   }
 }

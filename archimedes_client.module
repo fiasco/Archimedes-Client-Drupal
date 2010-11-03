@@ -19,30 +19,30 @@ function archimedes_client_menu() {
 
 
 function archimedes_out() {
-  $data = archimedes_update();
+  $owl = archimedes_update();
   
   $header = array('Name','Version');
-  
+
   $rows = array(
-    array('Site title',$data['title']->value),
-    array('Description',$data['description']->value),
-    array('Servername',implode(', ',$data['field_servername']->value)),
-    array('Web Server',implode(', ',$data['field_webserver']->value)),
-    array('Web Root',$data['field_webroot']->value),
-    array('DB Host',$data['field_dbhost']->value),
-    array('DB Name',$data['field_dbname']->value),
-    array('Users',implode(', ',$data['field_users']->value)),
-    array('DB Size',$data['field_db_size']->value),
-    array('Site Data Size',$data['field_sitedata']->value),
-    array('Webroot Size',$data['field_sitesize']->value),
-    array('User Count',$data['field_num_users']->value),
-    array('Modules',theme('table',$header,$data['field_drupal_mod']->value)),
-    array('Themes',theme('table',$header,$data['field_drupal_theme']->value)),
+    array('Site title',$owl->getField('title')->getValues()),
+    array('Description',$owl->getField('description')->getValues()),
+    array('Servername',implode(', ',$owl->getField('field_servername')->getValues())),
+    array('Web Server',implode(', ',$owl->getField('field_webserver')->getValues())),
+    array('Web Root',$owl->getField('field_webroot')->getValues()),
+    array('DB Host',$owl->getField('field_dbhost')->getValues()),
+    array('DB Name',$owl->getField('field_dbname')->getValues()),
+    array('Users',implode(', ',$owl->getField('field_users')->getValues())),
+    array('DB Size',$owl->getField('field_db_size')->getValues()),
+    array('Site Data Size',$owl->getField('field_sitedata')->getValues()),
+    array('Webroot Size',$owl->getField('field_sitesize')->getValues()),
+    array('User Count',$owl->getField('field_num_users')->getValues()),
+    array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->getValues())),
+    array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->getValues())),
   );
   
   
-  $rows = array_merge($rows, module_invoke_all('archimedes_rows', $data));
-  $a = new Archimedes();
+  $rows = array_merge($rows, module_invoke_all('archimedes_rows', $owl));
+  //$a = new Archimedes();
 //  $a->toXML($data);
   $header = array('Component', 'Value');
   return theme('table', $header, $rows);
@@ -63,124 +63,61 @@ function archimedes_update() {
   $field->addValue("[[Yet to do]]");
   
   $field = $owl->createField('field_servername', 'uri');
-  $field->invokeMulti();
   $field->addValue($_SERVER["SERVER_NAME"]);
+  
+  $field = $owl->createField('field_webserver', 'node_reference');
+  $field->invokeMulti();
+  $field->addValue(archimedes_shell_exec("hostname -f"));
+  
+  $field = $owl->createField('field_webroot', 'text');
+  $field->addValue($_SERVER["DOCUMENT_ROOT"]);
   
   $db = parse_url($db_url);
   $dbName = substr($db['path'],1);
   
-  $data = array(
-    'title' => (object) array(
-      'facet' => FALSE,
-      'multi' => FALSE,
-      'value' => variable_get('site_name', "unknown"),
-    ),
-    'description' => (object) array(
-      'facet' => FALSE,
-      'multi' => FALSE,
-      'value' => '[[Yet to Do]]', // find place to store this info
-    ),
-    'field_servername' => (object) array(
-      'facet' => FALSE,
-      'multi' => TRUE,
-      'value' => array(), // data loaded below
-    ),
-    'field_webserver' => (object) array(
-      'facet' => FALSE,
-      'multi' => TRUE,
-      'value' => array(), // data loaded below
-    ),
-    'field_webroot' => (object) array(
-      'facet' => FALSE,
-      'multi' => FALSE,
-      'value' => $_SERVER["DOCUMENT_ROOT"],
-    ),
-    'field_dbhost' => (object) array(
-      'facet' => TRUE,
-      'multi' => FALSE,
-      'value' => $db['host'],
-    ),
-    'field_dbname' => (object) array(
-      'facet' => FALSE,
-      'multi' => FALSE,
-      'value' => $dbName,
-    ),
-    'field_users' => (object) array(
-      'facet' => TRUE,
-      'multi' => TRUE,
-      'value' => array(), // data loaded below
-    ),
-    'field_db_size' => (object) array(
-      'facet' => FALSE,
-      'multi' => FALSE,
-      'value' => db_result(db_query("SELECT pg_database_size('".$dbName."')")), // curently only works for pgsql
-    ),
-    'field_site_data' => (object) array(
-      'facet' => FALSE,
-      'multi' => FALSE,
-      'value' => '', // data loaded below
-    ),
-    'field_sitesize' => (object) array(
-      'facet' => FALSE,
-      'multi' => FALSE,
-      'value' => '', // data loaded below
-    ),
-    'field_num_users' => (object) array(
-      'facet' => FALSE,
-      'multi' => FALSE,
-      'value' => db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1, // subtract one for public user
-    ),
-    'field_drupal_mod' => (object) array(
-      'facet' => TRUE,
-      'multi' => TRUE,
-      'value' => array(), // data loaded below
-    ),
-    'field_drupal_theme' => (object) array(
-      'facet' => TRUE,
-      'multi' => TRUE,
-      'value' => array(), // data loaded below
-    ),
-  );
-  $data['field_servername']->value[] = $_SERVER["SERVER_NAME"]; // Only current viewable here. Need a way to get others.
-  $data['field_webserver']->value[] = archimedes_shell_exec("hostname -f"); // Only current viewable here. Need a way to get others.
+  $field = $owl->createField('field_dbhost', 'node_reference');
+  $field->addValue($db['host']);
   
-  $owl = new Archimedes();
-  $field = $owl->createField('field_servername', 'node_reference');
-  $field->facet = TRUE;
-  $field->multi = TRUE;
-  $field->value = 'web.chiron';
-  $field->title = 'web.chiron';
-  $field->body = 'blah';
-  $owl->addField($field);
-
-  $baseclass = "ArchimedesField";
-  $extendedclass = $baseclass . '_' . $type;
-  return new $extendedclass();
+  $field = $owl->createField('field_dbname', 'text');
+  $field->addValue($dbName);
   
+  $field = $owl->createField('field_users', 'user_reference');
   $result = db_query("SELECT u.mail FROM {users} u WHERE u.status = 1");
   while ($u = db_fetch_object($result)) {
     if (archimedes_ends_with($u->mail,'@catalyst.net.nz')) // admin to set this value and store in variable table
-        $data['field_users']->value[] = $u->mail;
+      $field->addValue($u->mail);
   }
   
+  $field = $owl->createField('field_db_size', 'integer');
+  $field->addValue(db_result(db_query("SELECT pg_database_size('".$dbName."')"))); //  currently only works for pgsql
+  
+  $field = $owl->createField('field_sitedata', 'integer');
   $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL ".$_SERVER['DOCUMENT_ROOT'].base_path().file_directory_path()));
+  $field->addValue($dataSize[0]);
+  
+  $field = $owl->createField('field_sitesize', 'integer');
   $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL ".$_SERVER['DOCUMENT_ROOT'].base_path()));
+  $field->addValue($rootSize[0]);
   
-  $data['field_sitedata']->value = $dataSize[0];
-  $data['field_sitesize']->value = $rootSize[0];
+  $field = $owl->createField('field_num_users', 'integer');
+  $field->addValue(db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1); // subtract one for public user
   
+  $mField = $owl->createField('field_drupal_mod', 'node_reference');
+  $mField->invokeMulti();
+  $tField = $owl->createField('field_drupal_theme', 'node_reference');
+  $tField->invokeMulti();
   $result = db_query("SELECT d.name, d.info, d.type FROM {system} d");
   while ($d = db_fetch_object($result)) {
     $info = unserialize($d->info);
     if ($d->type == 'module')
-      $data['field_drupal_mod']->value[] = array($d->name,$info['version']);
+      $mField->addValue(array($d->name,$info['version']));
     elseif ($d->type == 'theme')
-      $data['field_drupal_theme']->value[] = array($d->name,$info['version']);
+      $tField->addValue(array($d->name,$info['version']));
   }
+
+  $owl->fields = array_merge($owl->fields, module_invoke_all('archimedes_fields', $owl->fields));
   
-  $data = array_merge($data, module_invoke_all('archimedes_fields', $data));
-  
-  return $data;
+  return $owl;
   
   
 } // archimedes_update()
