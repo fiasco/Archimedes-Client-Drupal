@@ -14,6 +14,14 @@ function archimedes_client_menu() {
     'description' => t('Archimedes Output'),
     'type' => MENU_NORMAL_ITEM,
   );
+  $items['admin/settings/archimedes'] = array(
+    'title' => 'Archimedes Client',
+    'description' => 'Administration settings for the Archimedes module',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('archimedes_admin'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+   );
   return $items;
 } // archimedes_client_menu()
 
@@ -62,11 +70,13 @@ function archimedes_update() {
   $field->addValue("[[Yet to do]]");
   
   $field = $owl->createField('field_servername', 'uri');
-  $field->addValue($_SERVER["SERVER_NAME"]);
+  $protocol = strpos(strtolower($_SERVER['SERVER_PROTOCOL']),'https') === FALSE ? 'http://' : 'https://';
+  $field->addValue($protocol . $_SERVER["SERVER_NAME"]);
   
   $field = $owl->createField('field_webserver', 'node_reference');
   $field->invokeMulti();
-  $field->addValue(archimedes_shell_exec("hostname -f"));
+  $hostname = archimedes_shell_exec("hostname -f");
+  $field->addValue($hostname);
   
   $field = $owl->createField('field_webroot', 'text');
   $field->addValue($_SERVER["DOCUMENT_ROOT"]);
@@ -75,17 +85,16 @@ function archimedes_update() {
   $dbName = substr($db['path'],1);
   
   $field = $owl->createField('field_dbhost', 'node_reference');
-  $field->addValue($db['host']);
+  if ($db['host'] == 'localhost')
+    $field->addValue($hostname);
+  else
+    $field->addValue($db['host']);
   
   $field = $owl->createField('field_dbname', 'text');
   $field->addValue($dbName);
   
   $field = $owl->createField('field_users', 'user_reference');
-  $result = db_query("SELECT u.mail FROM {users} u WHERE u.status = 1");
-  while ($u = db_fetch_object($result)) {
-    if (archimedes_ends_with($u->mail,'@catalyst.net.nz')) // admin to set this value and store in variable table
-      $field->addValue($u->mail);
-  }
+  $field->addValue('mailto:' . db_result(db_query("SELECT u.mail FROM {users} u WHERE uid = 1 LIMIT 1")));
   
   $field = $owl->createField('field_db_size', 'integer');
   $field->addValue(db_result(db_query("SELECT pg_database_size('".$dbName."')"))); //  currently only works for pgsql
@@ -101,27 +110,55 @@ function archimedes_update() {
   $field = $owl->createField('field_num_users', 'integer');
   $field->addValue(db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1); // subtract one for public user
   
-  $mField = $owl->createField('field_drupal_mod', 'node_reference');
+  $mField = $owl->createField('field_drupal_mod', 'drupal_mod');
   $mField->invokeMulti();
-  $tField = $owl->createField('field_drupal_theme', 'node_reference');
+  $tField = $owl->createField('field_drupal_theme', 'drupal_mod');
   $tField->invokeMulti();
   $result = db_query("SELECT d.name, d.info, d.type FROM {system} d");
   while ($d = db_fetch_object($result)) {
     $info = unserialize($d->info);
     if ($d->type == 'module')
-      $mField->addValue(array($d->name,$info['version']));
+      $mField->addValue(array('name' => $d->name, 'version' => $info['version']));
     elseif ($d->type == 'theme')
-      $tField->addValue(array($d->name,$info['version']));
+      $tField->addValue(array('name' => $d->name, 'version' => $info['version']));
   }
   
   drupal_alter('archimedes', $owl);
   
-  //$owl->toXML();
+  echo '<pre>' . htmlentities($owl->toXML()) . '</pre>';
+  
+  //drupal_mail('archimedes','send_xml','brendanv@catalyst.net.nz',language_default(),array('xml' => $owl->toXML()));
   
   return $owl;
   
   
 } // archimedes_update()
+
+
+function archimedes_admin() {
+  $form = array();
+
+  $form['onthisdate_user_emails'] = array(
+    '#type' => 'textarea',
+    '#title' => t('User email suffix\'s'),
+    '#default_value' => variable_get('archimedes_emails', '@domain_here.com'),
+    '#rows' => 4,
+    '#description' => t("List each required email suffix on a new line. Suffix's should begin with '@' (for example '@catalyst.net.nz'). If left blank, all no user emails will be sent. You many also use full emails addresses if required."),
+  );
+
+  return system_settings_form($form);
+}
+
+
+function archimedes_mail($key, &$message, $params) {
+  switch($key) {
+    case 'send_xml':
+      $message['subject'] = t('XML Update from !site');
+      $message['body'][] = $params['xml'];
+      break;
+  }
+}
+
 
 
 /**

@@ -9,19 +9,18 @@ class Archimedes {
     $dom = new DOMDocument('1.0', 'UTF-8');
     $dom->formatOutput = TRUE;
     $node = new DOMElement('node',null,'monitor:node');
-    $dom->appendChild($node);
-    $node->setAttribute('type','drupal');
+    $dom->appendChild($node); 
+    $node->setAttribute('type','drupal'); // remove drupal specific
     $node->setAttribute('datetime',date('c'));
-    $author = db_result(db_query("SELECT mail FROM {users} WHERE uid = 1"));
-    $node->setAttribute('author','mailto:'.$author);
+    $author = db_result(db_query("SELECT mail FROM {users} WHERE uid = 1")); // remove drupal specific
+    $node->setAttribute('author','mailto:' . $author);
     
     foreach($this->fields as $field) {
       $fNode = new DOMElement('field');
       $node->appendChild($fNode);
+      //$fNode->setAttributeNS('monitor-plugin:node','node:xmlns',null); // ARRRRRRGGGGGGGGGGGGGG!!!
       $fNode = $field->createXMLNode($fNode);
     }
-    
-    //echo '<pre>' . htmlentities($dom->saveXML()) . '</pre>';die;
     
     return $dom->saveXML();
     
@@ -48,11 +47,11 @@ class Archimedes {
 
 Class ArchimedesField {
   
-  private $facet = FALSE;
-  private $multi = FALSE;
-  private $type = '';
-  private $value = array();
   public $fieldID;
+  protected $facet = FALSE;
+  protected $multi = FALSE;
+  protected $type = '';
+  protected $value = array();
   protected $namespace = '';
   
   public function addValue($value,$index=null) {
@@ -99,9 +98,20 @@ Class ArchimedesField {
     return $this;
   }
   
-  public function createXMLNode($node) {
-    $node->setAttribute('id',$this->fieldID);
-    return $node;
+  // very basic XML node creator, will usuallly be overwritten by inherited class
+  public function createXMLNode($fNode) {
+    $fNode->setAttribute('id',$this->fieldID);
+    foreach($this->value as $value) {
+      $vNode = new DOMElement('value');
+      $fNode->appendChild($vNode);
+      if ($this->facet) {
+        $fcNode = new DOMElement('facet',$value);
+        $vNode->appendChild($fcNode);
+      } else {
+        $vNode->nodeValue = $value;
+      }
+    }
+    return $fNode;
   }
   
 }
@@ -111,6 +121,16 @@ Class ArchimedesField_text extends ArchimedesField {
     $this->fieldID = $fieldID;
     $this->setType('text');
   }
+  
+  public function createXMLNode($fNode) {
+    $fNode->setAttribute('id',$this->fieldID);
+    $fNode->setAttribute('type','text');
+    foreach($this->value as $value) {
+      $vNode = new DOMElement('value',$value);
+      $fNode->appendChild($vNode);
+    }
+    return $fNode;
+  }
 }
 
 Class ArchimedesField_uri extends ArchimedesField {
@@ -118,6 +138,24 @@ Class ArchimedesField_uri extends ArchimedesField {
     $this->fieldID = $fieldID;
     $this->setType('uri');
     $this->invokeMulti();
+  }
+  public function createXMLNode($fNode) {
+    $fNode->setAttribute('id',$this->fieldID);
+    $fNode->setAttribute('type','link');
+    foreach($this->value as $value) {
+      $vNode = new DOMElement('value');
+      $fNode->appendChild($vNode);
+      $vNode->setAttribute('type','uri');
+      if ($this->facet) {
+        var_dump($value);
+        $fcNode = new DOMElement('facet',$value);
+        $vNode->appendChild($fcNode);
+      } else {
+        $vNode->nodeValue = $value;
+      }
+      
+    }
+    return $fNode;
   }
 }
 
@@ -135,9 +173,82 @@ Class ArchimedesField_user_reference extends ArchimedesField {
     $this->fieldID = $fieldID;
     $this->setType('user_reference');
     $this->invokeFacet();
+  }
+  
+  public function createXMLNode($fNode) {
+    $fNode->setAttribute('id',$this->fieldID);
+    $fNode->setAttribute('type','user_reference');
+    //$fNode->setAttributeNS(null,'xms:user','monitor-plugin:user');
+    foreach($this->value as $value) {
+      $vNode = new DOMElement('value');
+      $fNode->appendChild($vNode);
+      $vNode->setAttribute('type','uri');
+      if ($this->facet) {
+        $fcNode = new DOMElement('facet',$value);
+        $vNode->appendChild($fcNode);
+      } else {
+        $vNode->nodeValue = $value;
+      }
+    }
+    return $fNode;
+  }
+  
+}
+
+Class ArchimedesField_drupal_mod extends ArchimedesField {
+  public function __construct($fieldID) {
+    $this->fieldID = $fieldID;
+    $this->setType('drupal_mod');
+    $this->invokeFacet();
+  }
+  
+  public function createXMLNode($fNode) {
+    $fNode->setAttribute('id',$this->fieldID);
+    $fNode->setAttribute('type','node_reference');
+    foreach($this->value as $value) {
+      $vNode = new DOMElement('value');
+      $fNode->appendChild($vNode);
+      $vNode->setAttribute('version',$value['version']); //fix namespace
+      if ($this->facet) {
+        $fcNode = new DOMElement('facet',$value['name']);
+        $vNode->appendChild($fcNode);
+      } else {
+        $vNode->nodeValue = $value;
+      }
+    }
+    return $fNode;
+  }
+  
+}
+
+Class ArchimedesField_git_repo extends ArchimedesField {
+  public function __construct($fieldID) {
+    $this->fieldID = $fieldID;
+    $this->setType('git_repo');
+    $this->invokeFacet();
     $this->invokeMulti();
   }
+  
+  public function createXMLNode($fNode) {
+    $fNode->setAttribute('id',$this->fieldID);
+    $fNode->setAttribute('type','text');
+    foreach($this->value as $value) {
+      $vNode = new DOMElement('value');
+      $fNode->appendChild($vNode);
+      $vNode->setAttribute('type','uri'); //fix namespace
+      $vNode->setAttribute('remote',$value['remote']); //fix namespace
+      if ($this->facet) {
+        $fcNode = new DOMElement('facet',$value['uri']);
+        $vNode->appendChild($fcNode);
+      } else {
+        $vNode->nodeValue = $value['uri'];
+      }
+    }
+    return $fNode;
+  }
+  
 }
+
 Class ArchimedesField_integer extends ArchimedesField {
   public function __construct($fieldID) {
     $this->fieldID = $fieldID;
