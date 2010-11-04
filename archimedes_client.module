@@ -42,8 +42,7 @@ function archimedes_out() {
   
   
   $rows = array_merge($rows, module_invoke_all('archimedes_rows', $owl));
-  //$a = new Archimedes();
-//  $a->toXML($data);
+  
   $header = array('Component', 'Value');
   return theme('table', $header, $rows);
   
@@ -114,13 +113,16 @@ function archimedes_update() {
     elseif ($d->type == 'theme')
       $tField->addValue(array($d->name,$info['version']));
   }
-
-  $owl->fields = array_merge($owl->fields, module_invoke_all('archimedes_fields', $owl->fields));
+  
+  drupal_alter('archimedes', $owl);
+  
+  //$owl->toXML();
   
   return $owl;
   
   
 } // archimedes_update()
+
 
 /**
 * Utility functions.

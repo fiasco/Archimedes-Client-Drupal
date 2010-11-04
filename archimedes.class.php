@@ -2,15 +2,29 @@
 class Archimedes {
   
   public $fields = array();
+  public $xml;
   
-  public function __construct() {
-    /*$root = '<?xml version="1.0" encoding="UTF-8" ?><node/>';*/
-    //parent::__construct($root);
-    //$this->addAttribute("xmlns","monitor:node");
-    //$this->addAttribute("type","drupal");
-    //$this->addAttribute("datetime",date('c'));
+  public function toXML() {
     
-    //$author = db_result(db_query("SELECT mail FROM {users} WHERE uid = 1"));
+    $dom = new DOMDocument('1.0', 'UTF-8');
+    $dom->formatOutput = TRUE;
+    $node = new DOMElement('node',null,'monitor:node');
+    $dom->appendChild($node);
+    $node->setAttribute('type','drupal');
+    $node->setAttribute('datetime',date('c'));
+    $author = db_result(db_query("SELECT mail FROM {users} WHERE uid = 1"));
+    $node->setAttribute('author','mailto:'.$author);
+    
+    foreach($this->fields as $field) {
+      $fNode = new DOMElement('field');
+      $node->appendChild($fNode);
+      $fNode = $field->createXMLNode($fNode);
+    }
+    
+    //echo '<pre>' . htmlentities($dom->saveXML()) . '</pre>';die;
+    
+    return $dom->saveXML();
+    
   }
   
   
@@ -18,7 +32,7 @@ class Archimedes {
     $baseclass = "ArchimedesField";
     $extendedclass = $baseclass . '_' . $type;
     $field = new $extendedclass($fieldID);
-    $this->addField($fieldID,$field); // fieldId is now saved twice. Better fix this.
+    $this->addField($fieldID,$field);
     return $field;
   }
   
@@ -83,6 +97,11 @@ Class ArchimedesField {
   public function revokeFacet() {
     $this->facet = FALSE;
     return $this;
+  }
+  
+  public function createXMLNode($node) {
+    $node->setAttribute('id',$this->fieldID);
+    return $node;
   }
   
 }
