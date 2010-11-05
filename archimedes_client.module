@@ -7,27 +7,54 @@ include "archimedes.class.php";
 */
 function archimedes_client_menu() {
   $items = array();
-  $items['archimedes'] = array(
+  $items['admin/reports/archimedes'] = array(
     'title' => t('Archimedes'),
+    'access arguments' => array('access administration pages'),
     'page callback' => 'archimedes_out',
-    'access arguments' => array('access content'),
-    'description' => t('Archimedes Output'),
+    'description' => t('Administer Archimedes'),
     'type' => MENU_NORMAL_ITEM,
   );
-  $items['admin/settings/archimedes'] = array(
-    'title' => 'Archimedes Client',
-    'description' => 'Administration settings for the Archimedes module',
+  
+  $items['admin/reports/archimedes/data'] = array(
+    'title' => t('Data'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/reports/archimedes/settings'] = array(
+    'title' => t('Settings'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('archimedes_admin'),
     'access arguments' => array('access administration pages'),
-    'type' => MENU_NORMAL_ITEM,
+    'type' => MENU_LOCAL_TASK,
+   );
+   $items['admin/reports/archimedes/export'] = array(
+    'title' => t('XML Export'),
+    'page callback' => 'archimedes_export',
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_LOCAL_TASK,
    );
   return $items;
 } // archimedes_client_menu()
 
 
-function archimedes_out() {
+function archimedes_out($arg=null) {
   $owl = archimedes_update();
+  
+  if ($arg == 'update') {
+    $server_email = variable_get('archimedes_server_email',null);
+    $site_name  = variable_get('site_name', "unknown");
+    if ($server_email != null) {
+      // need a way to bypass any mail hooks. as htmlmail has yet to add bypass functionality. maybe a solution is to use the php mail function instead.
+      //drupal_mail('archimedes','send_xml',$server_email,language_default(),array('xml' => $owl->toXML()));
+      $headers = 'From: ' . $site_name . ' <' . $owl->author . '>' . "\r\n";
+      if (mail('Archimedes Server <' . $server_email . '>',t('XML Update from') . ' ' . $site_name,$owl->toXML(),$headers)) {
+        drupal_set_message('Update sent successfully via email to '  . $server_email . '.');
+      }
+      else
+        drupal_set_message('Update failed to send for an unknown reason.','error');
+    } else {
+      drupal_set_message('Update failed to send as the ' . l('server email address','reports/archimedes/settings') . ' is not yet set.','error');
+    }
+  }
   
   $header = array('Name','Version');
 
@@ -52,16 +79,27 @@ function archimedes_out() {
   $rows = array_merge($rows, module_invoke_all('archimedes_rows', $owl));
   
   $header = array('Component', 'Value');
-  return theme('table', $header, $rows);
+  $output = '<p>This page shows the current output from of Archimedes Client for this website. It is not necessarily the same as what is known by the server.</p>';
+  $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . '</p>';
+  return $output . theme('table', $header, $rows);
   
   
 } // archimedes_out()
+
+
+function archimedes_export() {
+  $owl = archimedes_update();
+
+  return '<pre>' . htmlentities($owl->toXML()) . '</pre>';
+  
+} // archimedes_export()
 
 function archimedes_update() {
   
   global $db_url;
   
-  $owl = new Archimedes();
+  $author = db_result(db_query("SELECT mail FROM {users} WHERE uid = 1"));
+  $owl = new Archimedes('drupal',$author);
   
   $field = $owl->createField('title', 'text');
   $field->addValue(variable_get('site_name', "unknown"));
@@ -125,10 +163,6 @@ function archimedes_update() {
   
   drupal_alter('archimedes', $owl);
   
-  echo '<pre>' . htmlentities($owl->toXML()) . '</pre>';
-  
-  //drupal_mail('archimedes','send_xml','brendanv@catalyst.net.nz',language_default(),array('xml' => $owl->toXML()));
-  
   return $owl;
   
   
@@ -138,22 +172,35 @@ function archimedes_update() {
 function archimedes_admin() {
   $form = array();
 
-  $form['onthisdate_user_emails'] = array(
-    '#type' => 'textarea',
-    '#title' => t('User email suffix\'s'),
-    '#default_value' => variable_get('archimedes_emails', '@domain_here.com'),
-    '#rows' => 4,
-    '#description' => t("List each required email suffix on a new line. Suffix's should begin with '@' (for example '@catalyst.net.nz'). If left blank, all no user emails will be sent. You many also use full emails addresses if required."),
+  $form['archimedes_server_email'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Server email address'),
+    '#default_value' => variable_get('archimedes_server_email', 'archimedes@server.com'),
+    '#description' => t('Set Archimedes server email address.'),
+  );
+  
+  $form['archimedes_server_location'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Server web address'),
+    '#default_value' => variable_get('archimedes_server_location', 'http://server.com'),
+    '#description' => t('Set Archimedes server web address.'),
+  );
+  
+  $form['archimedes_cron_update'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Cron upate every x days'),
+    '#default_value' => variable_get('archimedes_cron_update', 1),
+    '#description' => t('Set Archimedes cron update period.'),
   );
 
   return system_settings_form($form);
 }
 
-
+// might not need this
 function archimedes_mail($key, &$message, $params) {
   switch($key) {
     case 'send_xml':
-      $message['subject'] = t('XML Update from !site');
+      $message['subject'] = t('XML Update from ' . variable_get('site_name', "unknown"));
       $message['body'][] = $params['xml'];
       break;
   }

@@ -3,6 +3,14 @@ class Archimedes {
   
   public $fields = array();
   public $xml;
+  public $type;
+  public $author;
+  
+  public function __construct($type, $author) {
+    $this->type = $type;
+    $this->author = $author;
+  }
+  
   
   public function toXML() {
     
@@ -10,10 +18,11 @@ class Archimedes {
     $dom->formatOutput = TRUE;
     $node = new DOMElement('node',null,'monitor:node');
     $dom->appendChild($node); 
-    $node->setAttribute('type','drupal'); // remove drupal specific
+    if (isset($this->type))
+      $node->setAttribute('type',$this->type);
     $node->setAttribute('datetime',date('c'));
-    $author = db_result(db_query("SELECT mail FROM {users} WHERE uid = 1")); // remove drupal specific
-    $node->setAttribute('author','mailto:' . $author);
+    if (isset($this->author))
+      $node->setAttribute('author','mailto:' . $this->author);
     
     foreach($this->fields as $field) {
       $fNode = new DOMElement('field');
