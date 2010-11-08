@@ -5,4 +5,4 @@ core = 6.x
 
 package = "Catalyst"
 
-version = "6.x-0.1-dev"
+version = "6.x-dev"

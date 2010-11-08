@@ -41,14 +41,16 @@ function archimedes_out($arg=null) {
   
   if ($arg == 'update') {
     $server_email = variable_get('archimedes_server_email',null);
-    $site_name  = variable_get('site_name', "unknown");
+    
+    
+    
     if ($server_email != null) {
       // need a way to bypass any mail hooks. as htmlmail has yet to add bypass functionality. maybe a solution is to use the php mail function instead.
       //drupal_mail('archimedes','send_xml',$server_email,language_default(),array('xml' => $owl->toXML()));
-      $headers = 'From: ' . $site_name . ' <' . $owl->author . '>' . "\r\n";
-      if (mail('Archimedes Server <' . $server_email . '>',t('XML Update from') . ' ' . $site_name,$owl->toXML(),$headers)) {
-        drupal_set_message('Update sent successfully via email to '  . $server_email . '.');
-      }
+      
+      $site_name  = variable_get('site_name', "unknown");
+      if ($owl->sendXML('Archimedes Server <' . $server_email . '>',$site_name))
+        drupal_set_message('Update sent successfully via email to '  . $server_email . '. This many take some time to become visible on the server.');
       else
         drupal_set_message('Update failed to send for an unknown reason.','error');
     } else {
@@ -79,8 +81,8 @@ function archimedes_out($arg=null) {
   $rows = array_merge($rows, module_invoke_all('archimedes_rows', $owl));
   
   $header = array('Component', 'Value');
-  $output = '<p>This page shows the current output from of Archimedes Client for this website. It is not necessarily the same as what is known by the server.</p>';
-  $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . '</p>';
+  $output = '<p>This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.</p>';
+  $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
   return $output . theme('table', $header, $rows);
   
   
@@ -105,7 +107,15 @@ function archimedes_update() {
   $field->addValue(variable_get('site_name', "unknown"));
   
   $field = $owl->createField('description', 'text');
-  $field->addValue("[[Yet to do]]");
+  if (variable_get('archimedes_description', '') != '') {
+    $nid = arg(1,drupal_get_normal_path(variable_get('archimedes_description', 'node')));
+    $node = node_load($nid);
+    $body = substr(drupal_html_to_text($node->body,array('b','strong','i','em','p')),0,500);
+    $field->addValue($body);
+  } else {
+    $field->addValue(variable_get('site_mission', ''));
+  }
+  
   
   $field = $owl->createField('field_servername', 'uri');
   $protocol = strpos(strtolower($_SERVER['SERVER_PROTOCOL']),'https') === FALSE ? 'http://' : 'https://';
@@ -115,9 +125,10 @@ function archimedes_update() {
   $field->invokeMulti();
   $hostname = archimedes_shell_exec("hostname -f");
   $field->addValue($hostname);
+  //$field->addValue($hostname, new NpluginNode(array('type' => 'host')));
   
   $field = $owl->createField('field_webroot', 'text');
-  $field->addValue($_SERVER["DOCUMENT_ROOT"]);
+  $field->addValue('file://' . $_SERVER["DOCUMENT_ROOT"]);
   
   $db = parse_url($db_url);
   $dbName = substr($db['path'],1);
@@ -150,15 +161,15 @@ function archimedes_update() {
   
   $mField = $owl->createField('field_drupal_mod', 'drupal_mod');
   $mField->invokeMulti();
-  $tField = $owl->createField('field_drupal_theme', 'drupal_mod');
+  $tField = $owl->createField('field_drupal_theme', 'drupal_theme');
   $tField->invokeMulti();
-  $result = db_query("SELECT d.name, d.info, d.type FROM {system} d");
+  $result = db_query("SELECT d.name, d.info, d.type FROM {system} d WHERE d.status = 1");
   while ($d = db_fetch_object($result)) {
     $info = unserialize($d->info);
     if ($d->type == 'module')
-      $mField->addValue(array('name' => $d->name, 'version' => $info['version']));
+      $mField->addValue(array('name' => $d->name, 'version' => $info['version'], 'title' => $info['name'], 'desc' => $info['description']));
     elseif ($d->type == 'theme')
-      $tField->addValue(array('name' => $d->name, 'version' => $info['version']));
+      $tField->addValue(array('name' => $d->name, 'version' => $info['version'], 'title' => $info['name'], 'desc' => $info['description']));
   }
   
   drupal_alter('archimedes', $owl);
@@ -186,9 +197,19 @@ function archimedes_admin() {
     '#description' => t('Set Archimedes server web address.'),
   );
   
+    $form['archimedes_description'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Description node'),
+    '#size' => 40,
+    '#default_value' => variable_get('archimedes_description', ''),
+    '#field_prefix' => url(NULL, array('absolute' => TRUE)) . (variable_get('clean_url', 0) ? '' : '?q='),
+    '#description' => t('Set the path where Archimedes can find a description for the site. If left blank, the Site Mission is used.'),
+  );
+  
   $form['archimedes_cron_update'] = array(
     '#type' => 'textfield',
     '#title' => t('Cron upate every x days'),
+    '#size' => 5,
     '#default_value' => variable_get('archimedes_cron_update', 1),
     '#description' => t('Set Archimedes cron update period.'),
   );
@@ -211,9 +232,13 @@ function archimedes_mail($key, &$message, $params) {
 /**
 * Utility functions.
 */
-function archimedes_ends_with( $str, $sub ) {
-   return ( substr( $str, strlen( $str ) - strlen( $sub ) ) === $sub );
+function archimedes_ends_with($str,$sub) {
+   return (substr($str, strlen($str) - strlen($sub)) === $sub);
 } // archimedes_ends_with()
+
+function archimedes_saveXML($owl) {
+   file_save_data($owl->toXML(), file_directory_path() . '/archimedes.xml', FILE_EXISTS_REPLACE);
+} // archimedes_saveXML()
 
 function archimedes_shell_exec($cmd) {
   $args = func_get_args();

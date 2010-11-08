@@ -2,7 +2,6 @@
 class Archimedes {
   
   public $fields = array();
-  public $xml;
   public $type;
   public $author;
   
@@ -27,12 +26,34 @@ class Archimedes {
     foreach($this->fields as $field) {
       $fNode = new DOMElement('field');
       $node->appendChild($fNode);
-      //$fNode->setAttributeNS('monitor-plugin:node','node:xmlns',null); // ARRRRRRGGGGGGGGGGGGGG!!!
       $fNode = $field->createXMLNode($fNode);
     }
     
     return $dom->saveXML();
     
+  }
+  
+  public function sendXML($email,$site_name) {
+    $boundary = '-----=' . md5(uniqid(rand()));
+    $attachment = chunk_split(base64_encode($this->toXML()));
+    $headers = 'From: ' . $site_name . ' <' . $this->author . '>' . "\r\n";
+    $headers .= 'Content-Type: multipart/mixed; boundary="' . $boundary . '"' . "\r\n";
+    $headers .= 'Mime-Version: 1.0' . "\r\n";
+    $message = '--' . $boundary . "\r\n";
+    $message .= "Content-Type: text/plain\r\n";
+    $message .= "Content-Transfer-Encoding: 7bit\r\n\r\n";
+    
+    $message .= "Archimedes XML update attached.\r\n";
+
+    $message .= '--' . $boundary . "\r\n";
+    
+    $message .= 'Content-Type: application/xml; name="data.xml"' . "\r\n";
+    $message .= 'Content-Transfer-Encoding: base64' . "\r\n";
+    $message .= 'Content-Disposition: attachment; filename="data.xml"' . "\r\n\r\n";
+    $message .= $attachment . "\r\n"; 
+    $message .= '--' . $boundary . "\r\n";
+    
+    return mail($email,t('XML Update from') . ' ' . $site_name,$message,$headers);
   }
   
   
@@ -63,11 +84,9 @@ Class ArchimedesField {
   protected $value = array();
   protected $namespace = '';
   
-  public function addValue($value,$index=null) {
-    if (isset($index))
-      $this->value[$index] = $value;
-    else
-      $this->value[] = $value;
+  public function addValue($value) {
+
+    $this->value[] = $value;
     return $this;
   }
   
@@ -107,7 +126,7 @@ Class ArchimedesField {
     return $this;
   }
   
-  // very basic XML node creator, will usuallly be overwritten by inherited class
+  // very basic XML node creator, will usually be overwritten by inherited class
   public function createXMLNode($fNode) {
     $fNode->setAttribute('id',$this->fieldID);
     foreach($this->value as $value) {
@@ -175,6 +194,24 @@ Class ArchimedesField_node_reference extends ArchimedesField {
     $this->setType('node_reference');
     $this->invokeFacet();
   }
+  
+  public function createXMLNode($fNode) {
+    $fNode->setAttribute('id',$this->fieldID);
+    $fNode->setAttribute('type','node_reference');
+    foreach($this->value as $value) {
+      $vNode = new DOMElement('value');
+      $fNode->appendChild($vNode);
+      $vNode->setAttributeNS('monitor-plugin:node','node:type','host');
+      $vNode->setAttributeNS('monitor-plugin:node','node:title',$value);
+      if ($this->facet) {
+        $fcNode = new DOMElement('facet',$value);
+        $vNode->appendChild($fcNode);
+      } else {
+        $vNode->nodeValue = $value;
+      }
+    }
+    return $fNode;
+  }
 }
 
 Class ArchimedesField_user_reference extends ArchimedesField {
@@ -187,11 +224,11 @@ Class ArchimedesField_user_reference extends ArchimedesField {
   public function createXMLNode($fNode) {
     $fNode->setAttribute('id',$this->fieldID);
     $fNode->setAttribute('type','user_reference');
-    //$fNode->setAttributeNS(null,'xms:user','monitor-plugin:user');
     foreach($this->value as $value) {
       $vNode = new DOMElement('value');
       $fNode->appendChild($vNode);
       $vNode->setAttribute('type','uri');
+      $vNode->setAttributeNS('monitor-plugin:user','user:type','mail');
       if ($this->facet) {
         $fcNode = new DOMElement('facet',$value);
         $vNode->appendChild($fcNode);
@@ -217,12 +254,46 @@ Class ArchimedesField_drupal_mod extends ArchimedesField {
     foreach($this->value as $value) {
       $vNode = new DOMElement('value');
       $fNode->appendChild($vNode);
-      $vNode->setAttribute('version',$value['version']); //fix namespace
+      $vNode->setAttributeNS('monitor-plugin:node','node:type','drupal_module');
+      $vNode->setAttributeNS('monitor-plugin:node','node:title',$value['title']);
+      $vNode->setAttributeNS('monitor-plugin:node','node:field_drupal_mod',$value['name']);
+      $vNode->setAttributeNS('monitor-plugin:node','node:body',$value['desc']);
+      $vNode->setAttributeNS('monitor-plugin:drupal-module','module:version',$value['version']);
       if ($this->facet) {
-        $fcNode = new DOMElement('facet',$value['name']);
+        $fcNode = new DOMElement('facet',$value['title']);
         $vNode->appendChild($fcNode);
       } else {
-        $vNode->nodeValue = $value;
+        $vNode->nodeValue = $value['title'];
+      }
+    }
+    return $fNode;
+  }
+  
+}
+
+Class ArchimedesField_drupal_theme extends ArchimedesField {
+  public function __construct($fieldID) {
+    $this->fieldID = $fieldID;
+    $this->setType('drupal_theme');
+    $this->invokeFacet();
+  }
+  
+  public function createXMLNode($fNode) {
+    $fNode->setAttribute('id',$this->fieldID);
+    $fNode->setAttribute('type','node_reference');
+    foreach($this->value as $value) {
+      $vNode = new DOMElement('value');
+      $fNode->appendChild($vNode);
+      $vNode->setAttributeNS('monitor-plugin:node','node:type','drupal_theme');
+      $vNode->setAttributeNS('monitor-plugin:node','node:title',$value['title']);
+      $vNode->setAttributeNS('monitor-plugin:node','node:field_drupal_mod',$value['name']);
+      $vNode->setAttributeNS('monitor-plugin:node','node:body',$value['desc']);
+      $vNode->setAttributeNS('monitor-plugin:drupal-module','module:version',$value['version']);
+      if ($this->facet) {
+        $fcNode = new DOMElement('facet',$value['title']);
+        $vNode->appendChild($fcNode);
+      } else {
+        $vNode->nodeValue = $value['title'];
       }
     }
     return $fNode;
@@ -244,8 +315,8 @@ Class ArchimedesField_git_repo extends ArchimedesField {
     foreach($this->value as $value) {
       $vNode = new DOMElement('value');
       $fNode->appendChild($vNode);
-      $vNode->setAttribute('type','uri'); //fix namespace
-      $vNode->setAttribute('remote',$value['remote']); //fix namespace
+      $vNode->setAttribute('type','uri');
+      $vNode->setAttributeNS('monitor-plugin:git','git:remote',$value['remote']);
       if ($this->facet) {
         $fcNode = new DOMElement('facet',$value['uri']);
         $vNode->appendChild($fcNode);
