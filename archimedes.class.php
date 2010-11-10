@@ -4,6 +4,7 @@ class Archimedes {
   public $fields = array();
   public $type;
   public $author;
+  public $id;
   
   public function __construct($type, $author) {
     $this->type = $type;
@@ -16,9 +17,11 @@ class Archimedes {
     $dom = new DOMDocument('1.0', 'UTF-8');
     $dom->formatOutput = TRUE;
     $node = new DOMElement('node',null,'monitor:node');
-    $dom->appendChild($node); 
+    $dom->appendChild($node);
     if (isset($this->type))
       $node->setAttribute('type',$this->type);
+    if (isset($this->id))
+      $node->setAttribute('id',$this->id);
     $node->setAttribute('datetime',date('c'));
     if (isset($this->author))
       $node->setAttribute('author','mailto:' . $this->author);
@@ -91,10 +94,7 @@ Class ArchimedesField {
   }
   
   public function getValues() {
-    if ($this->multi)
-      return $this->value;
-    else
-      return implode(', ',$this->value);
+    return $this->value;
   }
   
   public function setType($type) {
@@ -129,6 +129,7 @@ Class ArchimedesField {
   // very basic XML node creator, will usually be overwritten by inherited class
   public function createXMLNode($fNode) {
     $fNode->setAttribute('id',$this->fieldID);
+    $fNode->setAttribute('type',$this->type);
     foreach($this->value as $value) {
       $vNode = new DOMElement('value');
       $fNode->appendChild($vNode);
