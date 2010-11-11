@@ -85,7 +85,10 @@ class Archimedes {
   /**
    * Add a new field to the report.
    */
-  public function createField($fieldID, Array $values = array()) {
+  public function createField($fieldID, $values = array()) {
+    // Ensure the value is an array.
+    // Strings will be type casted to arrays.
+    $values = (array) $values;
     $field = new ArchimedesField($fieldID);
     $this->addField($fieldID,$field);
     foreach ($values as $value) {
@@ -211,26 +214,26 @@ Class ANSValue extends DOMElement {
   }
 }
 
-Class ANSNode_reference extends ANSValue {
+Class Archimedes_nodereference extends ANSValue {
 
   public function __construct($value) {
     parent::__construct($value);
     $this->setAttributeNS('monitor-plugin:node', 'node:title', $value);
   }
   public function addNode(Array $node) {
-    $required_keys = array('title', 'type');
+    $required_keys = array('title');
     $keys_diff = array_diff($required_keys, array_keys($node));
     if (!empty($keys_diff)) {
       throw new ArchimedesClientException("Missing required attributes for node reference: " . implode(', ', $keys_diff));
     }
-    foreach ($required_keys as $key) {
-      $this->setAttributeNS('monitor-plugin:node', 'node:' . $key, $node[$key]);
+    foreach ($node as $key => $value) {
+      $this->setAttributeNS('monitor-plugin:node', 'node:' . $key, $value);
     }
     return $this;
   }
 }
 
-Class ANSUser_reference extends ANSValue {
+Class Archimedes_userreference extends ANSValue {
   public function __construct(Array $user) {
     $required_keys = array('mailto');
     $keys_diff = array_diff($required_keys, array_keys($user));
@@ -245,14 +248,14 @@ Class ANSUser_reference extends ANSValue {
   }
 }
 
-Class ANSDrupal_mod extends ANSNode_reference {
+Class Archimedes_drupalmod extends ANSNode_reference {
   public function setVersion($version) {
     $this->setAttributeNS('monitor-plugin:drupal-module','module:version', $version);
     return $this;
   }
 }
 
-Class ANSGit_repo extends ANSValue {
+Class Archimedes_gitrepo extends ANSValue {
   public function __construct($value) {
     parent::__construct($value);
     $this->setAttribute('type','uri');
@@ -267,5 +270,18 @@ Class ANSGit_repo extends ANSValue {
  * Archimedes Exception Class.
  */
 class ArchimedesClientException extends Exception {
+}
 
+/**
+ * Wrapper function for createing a new value.
+ */
+function archimedes_value($value, $type = '') {
+  if (empty($type)) {
+    return new ANSValue($value);
+  }
+  $class = 'Archimedes_' . $type;
+  if (!class_exists($type)) {
+    throw new ArchimedesClientException("No such plugin available for $type");
+  }
+  return new $class($value);
 }

@@ -84,82 +84,92 @@ function archimedes_export() {
 
 function archimedes_update() {
 
-  global $db_url;
-
-  $author = db_result(db_query("SELECT mail FROM {users} WHERE uid = 1"));
-  $owl = new Archimedes('drupal',$author);
-
-  $field = $owl->createField('title', 'text');
-  $field->addValue(variable_get('site_name', "unknown"));
-
-  $field = $owl->createField('body', 'text');
-  if (variable_get('archimedes_description', '') != '') {
-    $nid = arg(1,drupal_get_normal_path(variable_get('archimedes_description', 'node')));
-    $node = node_load($nid);
-    $body = substr(drupal_html_to_text($node->body,array('b','strong','i','em','p')),0,500);
-    $field->addValue($body);
-  } else {
-    $field->addValue(variable_get('site_mission', ''));
-  }
-
-  $field = $owl->createField('field_servername', 'uri');
-  $protocol = strpos(strtolower($_SERVER['SERVER_PROTOCOL']),'https') === FALSE ? 'http://' : 'https://';
-  $field->addValue($protocol . $_SERVER["SERVER_NAME"]);
-
-  $field = $owl->createField('field_webserver', 'node_reference');
-  $field->invokeMulti();
-  $hostname = archimedes_shell_exec("hostname -f");
-  $field->addValue($hostname);
-
-  $field = $owl->createField('field_webroot', 'text');
-  $field->addValue('file://' . $_SERVER["DOCUMENT_ROOT"]);
-
-  $db = parse_url($db_url);
-  $dbName = substr($db['path'],1);
-
-  $field = $owl->createField('field_dbhost', 'node_reference');
-  if ($db['host'] == 'localhost')
-    $field->addValue($hostname);
-  else
-    $field->addValue($db['host']);
-
-  $field = $owl->createField('field_dbname', 'text');
-  $field->addValue($dbName);
-
-  $field = $owl->createField('field_users', 'user_reference');
-  $field->addValue('mailto:' . db_result(db_query("SELECT u.mail FROM {users} u WHERE uid = 1 LIMIT 1")));
-
-  $field = $owl->createField('field_db_size', 'integer');
-  $field->addValue(db_result(db_query("SELECT pg_database_size('" . $dbName . "')"))); //  currently only works for pgsql
-
-  $field = $owl->createField('field_sitedata', 'integer');
-  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $_SERVER['DOCUMENT_ROOT'] . base_path() . file_directory_path()));
-  $field->addValue($dataSize[0]);
-
-  $field = $owl->createField('field_sitesize', 'integer');
-  $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $_SERVER['DOCUMENT_ROOT'] . base_path()));
-  $field->addValue($rootSize[0]);
-
-  $field = $owl->createField('field_num_users', 'integer');
-  $field->addValue(db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1); // subtract one for public user
-
-  $mField = $owl->createField('field_drupal_mod', 'drupal_mod');
-  $mField->invokeMulti();
-  $tField = $owl->createField('field_drupal_theme', 'drupal_theme');
-  $tField->invokeMulti();
-  $result = db_query("SELECT d.name, d.info, d.type FROM {system} d WHERE d.status = 1");
-  while ($d = db_fetch_object($result)) {
-    $info = unserialize($d->info);
-    if ($d->type == 'module')
-      $mField->addValue(array('name' => $d->name, 'version' => $info['version'], 'title' => $info['name'], 'desc' => $info['description']));
-    elseif ($d->type == 'theme')
-      $tField->addValue(array('name' => $d->name, 'version' => $info['version'], 'title' => $info['name'], 'desc' => $info['description']));
-  }
+  global $db_url, $db_type;
 
   // Produce a unique value to represent this instance of Drupal.
   $keys = module_invoke_all('archimedes_client_id');
   sort($keys);
-  $owl->id = md5(implode('', $keys));
+  $owl = new Archimedes('drupal', variable_get('site_mail', FALSE), md5(implode('', $keys)));
+
+  $owl->createField('title', variable_get('site_name', "unknown"));
+
+  if (variable_get('archimedes_description', '') != '') {
+    $nid = arg(1,drupal_get_normal_path(variable_get('archimedes_description', 'node')));
+    $node = node_load($nid);
+    $body = substr(drupal_html_to_text($node->body,array('b','strong','i','em','p')),0,500);
+    $owl->createField('body', $body);
+  } else {
+    $owl->createField('body', variable_get('site_mission', 'No description has been set.'));
+  }
+
+  $protocol = strpos(strtolower($_SERVER['SERVER_PROTOCOL']),'https') === FALSE ? 'http://' : 'https://';
+  $owl->createField('field_servername', $protocol . $_SERVER["SERVER_NAME"]);
+
+  $hostname = archimedes_shell_exec("hostname -f");
+  $owl->createField('field_webserver', $hostname);
+  $owl->createField('field_webroot', 'file://' . $_SERVER["DOCUMENT_ROOT"]);
+
+  $db = parse_url($db_url);
+  $dbName = substr($db['path'],1);
+  $hostname = ($db['host'] == 'localhost') ? $hostname : $db['host'];
+
+  $owl->createField('field_dbhost', $hostname);
+  $owl->createField('field_dbname', $dbName);
+
+  $owl->createField('field_users', 'mailto:' . db_result(db_query("SELECT u.mail FROM {users} u WHERE uid = 1 LIMIT 1")));
+
+  switch ($db_type) {
+    case 'pgsql':
+      $owl->createField('field_db_size', db_result(db_query("SELECT pg_database_size('" . $dbName . "')")));
+    break;
+    case 'mysql':
+    case 'mysqli':
+      $rs = db_query("SHOW TABLE STATUS");
+      $size = 0;
+      while ($row = db_fetch_object($rs)) {
+        $size += ($row->Data_length + $row->Index_length);
+      }
+      $owl->createField('field_db_size', $size);
+    break;
+  }
+
+  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $_SERVER['DOCUMENT_ROOT'] . base_path() . file_directory_path()));
+  $owl->createField('field_sitedata', $dataSize[0]);
+
+  $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $_SERVER['DOCUMENT_ROOT'] . base_path()));
+  $owl->createField('field_sitesize', $rootSize[0]);
+
+  $owl->createField('field_num_users', db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1); // subtract one for public user
+
+  $modules = $themes = array();
+  foreach (module_list() as $module) {
+    $info = drupal_parse_info_file(drupal_get_path('module', $module) '/' . $module . '.info');
+    $node = array(
+      'title' => $info['name'],
+      'body'  => $info['description'],
+      'package' => $info['package'],
+      'project' => $info['project'],
+    );
+    $value = archimedes_value($info['name'], 'drupalmod')
+              ->addNode($node)
+              ->setVersion($info['version']);
+    $modules[] = $value;
+  }
+  $owl->createField('field_drupal_mod', $modules);
+
+  $result = db_query("SELECT d.name FROM {system} d WHERE d.status = 1 AND d.type = 'theme'");
+  while ($theme = db_result($result)) {
+    $info = drupal_parse_info_file(drupal_get_path('theme', $theme) . '/' . $theme . '.info');
+    $node = array(
+      'title' => $info['name'],
+      'body'  => $info['description'],
+    );
+    $value = archimedes_value($info['name'], 'drupalmod')
+              ->addNode($node)
+              ->setVersion($info['version']);
+    $themes[] = $value;
+  }
+  $owl->createField('field_drupal_theme', $themes);
 
   // Allow other modules to add data via hook_archimedes.
   // TODO: rewrite hook as archimedes_client.
@@ -168,6 +178,9 @@ function archimedes_update() {
   return $owl;
 } // archimedes_update()
 
+/**
+ * Implementation of hook_archimedes_client_id().
+ */
 function archimedes_client_archimedes_client_id() {
   return $_SERVER['DOCUMENT_ROOT'];
 }
