@@ -29,9 +29,6 @@ class Archimedes {
     $node->setAttribute('author','mailto:' . $this->author);
 
     foreach($this->fields as $field) {
-      //$fNode = new DOMElement('field');
-      //$node->appendChild($fNode);
-      //$fNode = $field->createXMLNode($fNode);
       $field->compile($node);
     }
     return $dom->saveXML();
@@ -92,9 +89,6 @@ class Archimedes {
     $field = new ArchimedesField($fieldID);
     $this->addField($fieldID,$field);
     foreach ($values as $value) {
-      if (!is_object($value)) {
-        $value = new ANSValue($value);
-      }
       $field->addValue($value);
     }
     return $field;
@@ -114,7 +108,6 @@ Class ArchimedesField {
 
   public $fieldID;
   protected $facet = FALSE;
-  protected $multi = FALSE;
   protected $type = '';
   protected $values = array();
   protected $namespace = '';
@@ -124,6 +117,9 @@ Class ArchimedesField {
   }
 
   public function addValue($value) {
+    if (!is_object($value)) {
+      $value = new ANSValue($value);
+    }
     $this->values[] = $value;
     return $this;
   }
@@ -152,10 +148,26 @@ Class ArchimedesField {
     foreach($this->values as $value) {
       $value->compile($field);
       if ($this->facet) {
-        $field_value->appendChild(new DOMElement('facet', (string) $value));
+        $value->nodeValue = '';
+        $value->appendChild(new DOMElement('facet', (string) $value));
       }
     }
     return $field;
+  }
+  
+  public function __toString() {
+    $list = array();
+    foreach($this->values as $value) {
+      $list[] = (string) $value;
+    }
+    return implode(', ',$list);
+  }
+  public function toArray() {
+    $list = array();
+    foreach($this->values as $value) {
+      $list[] = $value->toArray();
+    }
+    return $list;
   }
 }
 
@@ -192,6 +204,14 @@ Class ANSValue extends DOMElement {
     $this->ns_attr[$ns][$name] = $value;
     return $this;
   }
+  
+  public function getAttribute($name) {
+    return $this->attr[$name];
+  }
+  
+  public function getAttributeNS($ns, $name) {
+    return $this->ns_attr[$ns][$name];
+  }
 
   /**
    * Append a DOMElement to a parent node.
@@ -210,7 +230,7 @@ Class ANSValue extends DOMElement {
   }
 
   public function __toString() {
-    return $this->value;
+    return (string) $this->value;
   }
 }
 
@@ -248,10 +268,13 @@ Class Archimedes_userreference extends ANSValue {
   }
 }
 
-Class Archimedes_drupalmod extends ANSNode_reference {
+Class Archimedes_drupalmod extends Archimedes_nodereference {
   public function setVersion($version) {
     $this->setAttributeNS('monitor-plugin:drupal-module','module:version', $version);
     return $this;
+  }
+  public function toArray() {
+    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('monitor-plugin:drupal-module','module:version')); //remove module:
   }
 }
 
@@ -273,14 +296,14 @@ class ArchimedesClientException extends Exception {
 }
 
 /**
- * Wrapper function for createing a new value.
+ * Wrapper function for creating a new value.
  */
 function archimedes_value($value, $type = '') {
   if (empty($type)) {
     return new ANSValue($value);
   }
   $class = 'Archimedes_' . $type;
-  if (!class_exists($type)) {
+  if (!class_exists($class)) {
     throw new ArchimedesClientException("No such plugin available for $type");
   }
   return new $class($value);

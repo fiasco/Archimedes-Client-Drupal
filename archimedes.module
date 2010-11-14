@@ -5,7 +5,7 @@ include "archimedes.class.php";
 /**
 * Implementation of hook_menu().
 */
-function archimedes_client_menu() {
+function archimedes_menu() {
   $items = array();
   $items['admin/reports/archimedes'] = array(
     'title' => t('Archimedes'),
@@ -38,7 +38,7 @@ function archimedes_client_menu() {
     'type' => MENU_LOCAL_TASK,
    );
   return $items;
-} // archimedes_client_menu()
+} // archimedes_menu()
 
 
 function archimedes_out() {
@@ -46,21 +46,22 @@ function archimedes_out() {
 
   $header = array('Name','Version');
 
+  
   $rows = array(
-    array('Site title',implode(', ',$owl->getField('title')->getValues())),
-    array('Description',implode(', ',$owl->getField('body')->getValues())),
-    array('Servername',implode(', ',$owl->getField('field_servername')->getValues())),
-    array('Web Server',implode(', ',$owl->getField('field_webserver')->getValues())),
-    array('Web Root',implode(', ',$owl->getField('field_webroot')->getValues())),
-    array('DB Host',implode(', ',$owl->getField('field_dbhost')->getValues())),
-    array('DB Name',implode(', ',$owl->getField('field_dbname')->getValues())),
-    array('Users',implode(', ',$owl->getField('field_users')->getValues())),
-    array('DB Size',implode(', ',$owl->getField('field_db_size')->getValues())),
-    array('Site Data Size',implode(', ',$owl->getField('field_sitedata')->getValues())),
-    array('Webroot Size',implode(', ',$owl->getField('field_sitesize')->getValues())),
-    array('User Count',implode(', ',$owl->getField('field_num_users')->getValues())),
-    array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->getValues())),
-    array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->getValues())),
+    array('Site title',(string) $owl->getField('title')),
+    array('Description',(string) $owl->getField('body')),
+    array('Servername',(string) $owl->getField('field_servername')),
+    array('Web Server',(string) $owl->getField('field_webserver')),
+    array('Web Root',(string) $owl->getField('field_webroot')),
+    array('DB Host',(string) $owl->getField('field_dbhost')),
+    array('DB Name',(string) $owl->getField('field_dbname')),
+    array('Users',(string) $owl->getField('field_users')),
+    array('DB Size',(string) $owl->getField('field_db_size')),
+    array('Site Data Size',(string) $owl->getField('field_sitedata')),
+    array('Webroot Size',(string) $owl->getField('field_sitesize')),
+    array('User Count',(string) $owl->getField('field_num_users')),
+    array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->toArray())),
+    array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->toArray())),
   );
 
 
@@ -87,7 +88,7 @@ function archimedes_update() {
   global $db_url, $db_type;
 
   // Produce a unique value to represent this instance of Drupal.
-  $keys = module_invoke_all('archimedes_client_id');
+  $keys = module_invoke_all('archimedes_id');
   sort($keys);
   $owl = new Archimedes('drupal', variable_get('site_mail', FALSE), md5(implode('', $keys)));
 
@@ -96,7 +97,7 @@ function archimedes_update() {
   if (variable_get('archimedes_description', '') != '') {
     $nid = arg(1,drupal_get_normal_path(variable_get('archimedes_description', 'node')));
     $node = node_load($nid);
-    $body = substr(drupal_html_to_text($node->body,array('b','strong','i','em','p')),0,500);
+    $body = trim(substr(drupal_html_to_text($node->body,array('b','strong','i','em','p')),0,500));
     $owl->createField('body', $body);
   } else {
     $owl->createField('body', variable_get('site_mission', 'No description has been set.'));
@@ -106,17 +107,20 @@ function archimedes_update() {
   $owl->createField('field_servername', $protocol . $_SERVER["SERVER_NAME"]);
 
   $hostname = archimedes_shell_exec("hostname -f");
-  $owl->createField('field_webserver', $hostname);
+  $owl->createField('field_webserver', $hostname)
+      ->invokeFacet();
   $owl->createField('field_webroot', 'file://' . $_SERVER["DOCUMENT_ROOT"]);
 
   $db = parse_url($db_url);
   $dbName = substr($db['path'],1);
   $hostname = ($db['host'] == 'localhost') ? $hostname : $db['host'];
 
-  $owl->createField('field_dbhost', $hostname);
+  $owl->createField('field_dbhost', $hostname)
+      ->invokeFacet();
   $owl->createField('field_dbname', $dbName);
 
-  $owl->createField('field_users', 'mailto:' . db_result(db_query("SELECT u.mail FROM {users} u WHERE uid = 1 LIMIT 1")));
+  $owl->createField('field_users', 'mailto:' . db_result(db_query("SELECT u.mail FROM {users} u WHERE uid = 1 LIMIT 1")))
+      ->invokeFacet();
 
   switch ($db_type) {
     case 'pgsql':
@@ -143,7 +147,7 @@ function archimedes_update() {
 
   $modules = $themes = array();
   foreach (module_list() as $module) {
-    $info = drupal_parse_info_file(drupal_get_path('module', $module) '/' . $module . '.info');
+    $info = drupal_parse_info_file(drupal_get_path('module', $module) . '/' . $module . '.info');
     $node = array(
       'title' => $info['name'],
       'body'  => $info['description'],
@@ -155,8 +159,9 @@ function archimedes_update() {
               ->setVersion($info['version']);
     $modules[] = $value;
   }
-  $owl->createField('field_drupal_mod', $modules);
-
+  $owl->createField('field_drupal_mod', $modules)
+      ->invokeFacet();
+  
   $result = db_query("SELECT d.name FROM {system} d WHERE d.status = 1 AND d.type = 'theme'");
   while ($theme = db_result($result)) {
     $info = drupal_parse_info_file(drupal_get_path('theme', $theme) . '/' . $theme . '.info');
@@ -169,19 +174,19 @@ function archimedes_update() {
               ->setVersion($info['version']);
     $themes[] = $value;
   }
-  $owl->createField('field_drupal_theme', $themes);
+  $owl->createField('field_drupal_theme', $themes)
+      ->invokeFacet();
 
   // Allow other modules to add data via hook_archimedes.
-  // TODO: rewrite hook as archimedes_client.
   drupal_alter('archimedes', $owl);
 
   return $owl;
 } // archimedes_update()
 
 /**
- * Implementation of hook_archimedes_client_id().
+ * Implementation of hook_archimedes_id().
  */
-function archimedes_client_archimedes_client_id() {
+function archimedes_archimedes_id() {
   return $_SERVER['DOCUMENT_ROOT'];
 }
 
@@ -263,6 +268,13 @@ function archimedes_send() {
 function archimedes_send_force() {
   archimedes_send();
   drupal_goto('admin/reports/archimedes');
+}
+
+/**
+ * Implementation of hook_cron().
+ */
+function archimedes_cron() {
+  archimedes_send();
 }
 
 /**
