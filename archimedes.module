@@ -226,7 +226,7 @@ function archimedes_admin() {
     '#title' => t('Cron upate every x days'),
     '#size' => 5,
     '#default_value' => variable_get('archimedes_cron_update', 1),
-    '#description' => t('Set Archimedes cron update period.'),
+    '#description' => t('Set Archimedes minimum cron update period.'),
   );
 
   return system_settings_form($form);
@@ -271,7 +271,11 @@ function archimedes_send_force() {
  * Implementation of hook_cron().
  */
 function archimedes_cron() {
-  archimedes_send();
+  $cron_time = variable_get('archimedes_cron_last',0);
+  if (time() > $cron_time + variable_get('archimedes_cron_update',1)*86400) {
+    archimedes_send();
+    variable_set('archimedes_cron_last',time());
+  }
 }
 
 /**
