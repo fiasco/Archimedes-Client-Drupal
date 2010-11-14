@@ -45,8 +45,6 @@ function archimedes_out() {
   $owl = archimedes_update();
 
   $header = array('Name','Version');
-
-  
   $rows = array(
     array('Site title',(string) $owl->getField('title')),
     array('Description',(string) $owl->getField('body')),
@@ -63,10 +61,9 @@ function archimedes_out() {
     array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->toArray())),
     array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->toArray())),
   );
-
-
-  $rows = array_merge($rows, module_invoke_all('archimedes_rows', $owl)); // dirty, should send rows by reference and be added
-
+ 
+  drupal_alter('archimedes_rows',$rows,$owl);
+  
   $header = array('Component', 'Value');
   $output = '<p>This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.</p>';
   $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';

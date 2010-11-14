@@ -274,18 +274,20 @@ Class Archimedes_drupalmod extends Archimedes_nodereference {
     return $this;
   }
   public function toArray() {
-    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('monitor-plugin:drupal-module','module:version')); //remove module:
+    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('monitor-plugin:drupal-module','module:version'));
   }
 }
 
 Class Archimedes_gitrepo extends ANSValue {
   public function __construct($value) {
     parent::__construct($value);
-    $this->setAttribute('type','uri');
   }
   public function setRemoteName($name) {
     $this->setAttributeNS('monitor-plugin:git','git:remote', $name);
     return $this;
+  }
+  public function toArray() {
+    return array('remote' => $this->getAttributeNS('monitor-plugin:git','git:remote'),'uri' => (string) $this->value);
   }
 }
 
