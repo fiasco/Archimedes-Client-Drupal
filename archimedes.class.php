@@ -56,9 +56,10 @@ class Archimedes {
   /**
    * Send the XML report via email.
    */
-  public function sendXML($email, $site_name) {
+  public function sendXML($email, $site_name, $key) {
     $boundary = '-----=' . md5(uniqid(rand()));
-    $attachment = chunk_split(base64_encode($this->toXML()));
+    $attachment = $this->toXML();
+    
     $headers = 'From: ' . $site_name . ' <' . $this->author . '>' . "\r\n";
     $headers .= 'Content-Type: multipart/mixed; boundary="' . $boundary . '"' . "\r\n";
     $headers .= 'Mime-Version: 1.0' . "\r\n";
@@ -69,12 +70,31 @@ class Archimedes {
     $message .= "Archimedes XML update attached.\r\n";
 
     $message .= '--' . $boundary . "\r\n";
+    
+    if ($key != '') { // encrypt xml attachment and send environment keys
+      $pubkey = openssl_pkey_get_public($key);
+      openssl_seal($attachment,$sealed,$ekeys,array($pubkey));
+      openssl_free_key($pubkey);
+      
+      $attachment = $sealed;
+      
+      $message .= "Content-Type: text/plain\r\n";
+      $message .= "Content-Transfer-Encoding: base64\r\n\r\n";
+
+      $message .= chunk_split(base64_encode("EKEY: " . $ekeys[0]));
+    
+      $message .= '--' . $boundary . "\r\n";
+      
+    }
+      
+    $attachment = chunk_split(base64_encode($attachment));
 
     $message .= 'Content-Type: application/xml; name="data.xml"' . "\r\n";
     $message .= 'Content-Transfer-Encoding: base64' . "\r\n";
     $message .= 'Content-Disposition: attachment; filename="data.xml"' . "\r\n\r\n";
     $message .= $attachment . "\r\n";
     $message .= '--' . $boundary . "\r\n";
+      
 
     return mail($email, t('XML Update from') . ' ' . $site_name, $message, $headers);
   }

@@ -43,7 +43,7 @@ function archimedes_menu() {
 
 function archimedes_out() {
   $owl = archimedes_update();
-
+  
   $header = array('Name','Version');
   $rows = array(
     array('Site title',(string) $owl->getField('title')),
@@ -68,8 +68,6 @@ function archimedes_out() {
   $output = '<p>This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.</p>';
   $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
   return $output . theme('table', $header, $rows);
-
-
 } // archimedes_out()
 
 
@@ -184,7 +182,9 @@ function archimedes_update() {
  * Implementation of hook_archimedes_id().
  */
 function archimedes_archimedes_id() {
-  return $_SERVER['DOCUMENT_ROOT'];
+  global $db_url;
+  $url = (is_array($db_url) ? implode('', $db_url) : $db_url);
+  return $_SERVER['SERVER_NAME'] . $url;
 }
 
 
@@ -206,12 +206,11 @@ function archimedes_admin() {
   );
 
   $form['archimedes_server_key'] = array(
-    '#type' => 'textfield',
+    '#type' => 'textarea',
     '#title' => t('Server Public Key'),
     '#default_value' => variable_get('archimedes_server_key', ''),
-    '#description' => t('Set the public key for the Archimedes server.'),
+    '#description' => t('Set the public key for the Archimedes server. This can be found on the Archimedes server administration pages. If left blank mail will be unencrypted.'),
   );
-
   $form['archimedes_description'] = array(
     '#type' => 'textfield',
     '#title' => t('Description node'),
@@ -245,17 +244,14 @@ function archimedes_send() {
 
   $owl = archimedes_update();
 
-  if ($server_email != '' && $server_key != '') {
+  if ($server_email != '') {
     $site_name  = variable_get('site_name', 'unknown');
     if ($owl->sendXML('Archimedes Server <' . $server_email . '>', $site_name, $server_key))
       drupal_set_message('Update sent successfully via email to '  . $server_email . '. This many take some time to become visible on the server.');
     else
       drupal_set_message('Update failed to send for an unknown reason.','error');
   } else {
-    if ($server_email == '')
-      drupal_set_message('Update failed to send as the ' . l('server email address','admin/reports/archimedes/settings') . ' is not yet set.','error');
-    if ($server_key == '')
-      drupal_set_message('Update failed to send as the ' . l('server server public key','admin/reports/archimedes/settings') . ' is not yet set.','error');
+    drupal_set_message('Update failed to send as the ' . l('server email address','admin/reports/archimedes/settings') . ' is not yet set.','error');
   }
 }
 
