@@ -138,6 +138,7 @@ Class ArchimedesField {
 
   public function addValue($value) {
     if (!is_object($value)) {
+      
       $value = new ANSValue($value);
     }
     $this->values[] = $value;
@@ -193,23 +194,21 @@ Class ArchimedesField {
 
 Class ANSValue extends DOMElement {
 
-  /**
-   * Namespace attributes.
-   */
+  
+  // Namespace attributes.
   protected $ns_attr = array();
-
-  /**
-   * Normal attributes.
-   */
+  protected $ns = null;
+  
+  // Normal attributes.
   protected $attr = array();
 
   protected $value = '';
 
   public $facet = FALSE;
 
-  public function __construct($value) {
-    parent::__construct('value', $value);
-    $this->value = $value;
+  public function __construct($val) {
+    parent::__construct('value', $val);
+    $this->value = $val;
   }
 
   public function setAttribute($name, $value) {
@@ -221,7 +220,7 @@ Class ANSValue extends DOMElement {
     if (strpos($name, ':') === FALSE) {
       return $this->setAttribute($name, $value);
     }
-    $this->ns_attr[$ns][$name] = $value;
+    $this->ns_attr[$name] = $value;
     return $this;
   }
   
@@ -229,8 +228,8 @@ Class ANSValue extends DOMElement {
     return $this->attr[$name];
   }
   
-  public function getAttributeNS($ns, $name) {
-    return $this->ns_attr[$ns][$name];
+  public function getAttributeNS($name) {
+    return $this->ns_attr[$name];
   }
 
   /**
@@ -241,10 +240,8 @@ Class ANSValue extends DOMElement {
     foreach ($this->attr as $key => $value) {
       parent::setAttribute($key, $value);
     }
-    foreach ($this->ns_attr as $ns => $attr) {
-      foreach ($attr as $key => $value) {
-        parent::setAttributeNS($ns, $key, $value);
-      }
+    foreach ($this->ns_attr as $key => $value) {
+      parent::setAttributeNS($this->ns, $key, $value);
     }
     return $this;
   }
@@ -257,44 +254,50 @@ Class ANSValue extends DOMElement {
 Class Archimedes_nodereference extends ANSValue {
 
   public function __construct($value) {
+    if (!isset($this->ns))
+      $this->ns = 'monitor-plugin:node';
     parent::__construct($value);
-    $this->setAttributeNS('monitor-plugin:node', 'node:title', $value);
+    $this->setAttributeNS($this->ns, 'node:title', $value);
   }
   public function addNode(Array $node) {
-    $required_keys = array('title');
+    $required_keys = array('title','type');
     $keys_diff = array_diff($required_keys, array_keys($node));
     if (!empty($keys_diff)) {
       throw new ArchimedesClientException("Missing required attributes for node reference: " . implode(', ', $keys_diff));
     }
     foreach ($node as $key => $value) {
-      $this->setAttributeNS('monitor-plugin:node', 'node:' . $key, $value);
+      $this->setAttributeNS($this->ns, 'node:' . $key, $value);
     }
     return $this;
   }
 }
 
 Class Archimedes_userreference extends ANSValue {
-  public function __construct(Array $user) {
-    $required_keys = array('mailto');
+  public function __construct($value) {
+    $this->ns = 'monitor-plugin:user';
+    parent::__construct($value);
+  }
+  public function addUser(Array $user) {
+    $required_keys = array('type');
     $keys_diff = array_diff($required_keys, array_keys($user));
     if (!empty($keys_diff)) {
       throw new ArchimedesClientException("Missing required attributes for user reference: " . implode(', ', $keys_diff));
     }
     foreach ($required_keys as $key) {
-      $this->setAttributeNS('monitor-plugin:user', 'user:' . $key, $user[$key]);
+      $this->setAttributeNS($this->ns, 'user:' . $key, $user[$key]);
     }
-    parent::__construct($user['mailto']);
     return $this;
   }
 }
 
 Class Archimedes_drupalmod extends Archimedes_nodereference {
-  public function setVersion($version) {
-    $this->setAttributeNS('monitor-plugin:drupal-module','module:version', $version);
-    return $this;
+  
+  public function __construct($value) {
+    $this->ns = 'monitor-plugin:drupal-module';
+    parent::__construct($value);
   }
   public function toArray() {
-    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('monitor-plugin:drupal-module','module:version'));
+    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('monitor-plugin:drupal-module','node:version'));
   }
 }
 

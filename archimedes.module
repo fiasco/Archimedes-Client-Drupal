@@ -88,6 +88,7 @@ function archimedes_update() {
   $owl = new Archimedes('drupal', variable_get('site_mail', FALSE), md5(implode('', $keys)));
 
   $owl->createField('title', variable_get('site_name', "unknown"));
+  $owl->createField('field_drupal_version', VERSION);
 
   if (variable_get('archimedes_description', '') != '') {
     $nid = arg(1,drupal_get_normal_path(variable_get('archimedes_description', 'node')));
@@ -102,25 +103,43 @@ function archimedes_update() {
   $owl->createField('field_servername', $protocol . $_SERVER["SERVER_NAME"]);
 
   $hostname = archimedes_shell_exec("hostname -f");
-  $owl->createField('field_webserver', $hostname)
+  $values = array();
+  $values[] = archimedes_value($hostname,'nodereference')->addNode(array('title' => $hostname, 'type' => 'host'));
+  $owl->createField('field_webserver', $values)
       ->invokeFacet();
   $owl->createField('field_webroot', 'file://' . $_SERVER["DOCUMENT_ROOT"]);
 
-  $db = parse_url($db_url);
-  $dbName = substr($db['path'],1);
-  $hostname = ($db['host'] == 'localhost') ? $hostname : $db['host'];
-
-  $owl->createField('field_dbhost', $hostname)
+  $urls = array();
+  if (!is_array($db_url)) {
+    $urls[] = $db_url;
+  } else {
+    $urls = $db_url;
+  }
+  $values = array();
+  foreach($urls as $url) {
+    $db = parse_url($url);
+    $dbName = substr($db['path'],1);
+    $hostname = ($db['host'] == 'localhost') ? $hostname : $db['host'];
+    $values[] = archimedes_value($hostname,'nodereference')->addNode(array('title' => $hostname, 'type' => 'host'));
+  }
+  
+  $owl->createField('field_dbhost', $values)
       ->invokeFacet();
   $owl->createField('field_dbname', $dbName);
 
-  $owl->createField('field_users', 'mailto:' . db_result(db_query("SELECT u.mail FROM {users} u WHERE uid = 1 LIMIT 1")))
+  $user = array(
+    'type' => 'mail',
+    'mailto' => 'mailto:' . db_result(db_query("SELECT u.mail FROM {users} u WHERE uid = 1 LIMIT 1")),
+  );
+  $value = archimedes_value($user['mailto'],'userreference')
+            ->addUser($user);
+  $owl->createField('field_users', array($value))
       ->invokeFacet();
 
   switch ($db_type) {
     case 'pgsql':
       $owl->createField('field_db_size', db_result(db_query("SELECT pg_database_size('" . $dbName . "')")));
-    break;
+      break;
     case 'mysql':
     case 'mysqli':
       $rs = db_query("SHOW TABLE STATUS");
@@ -144,14 +163,15 @@ function archimedes_update() {
   foreach (module_list() as $module) {
     $info = drupal_parse_info_file(drupal_get_path('module', $module) . '/' . $module . '.info');
     $node = array(
-      'title' => $info['name'],
-      'body'  => $info['description'],
-      'package' => $info['package'],
-      'project' => $info['project'],
+      'title'   => $info['name'],
+      'body'    => $info['description'],
+      'field_dru_pkg' => $info['package'],
+      'field_dru_proj' => $info['project'],
+      'field_mod_version' => $info['version'],
+      'type'    => 'drupal_module',
     );
     $value = archimedes_value($info['name'], 'drupalmod')
-              ->addNode($node)
-              ->setVersion($info['version']);
+              ->addNode($node);
     $modules[] = $value;
   }
   $owl->createField('field_drupal_mod', $modules)
@@ -163,10 +183,12 @@ function archimedes_update() {
     $node = array(
       'title' => $info['name'],
       'body'  => $info['description'],
+      'field_mod_version' => $info['version'],
+      'type'  => 'drupal_theme',
     );
     $value = archimedes_value($info['name'], 'drupalmod')
-              ->addNode($node)
-              ->setVersion($info['version']);
+              ->addNode($node);
+              
     $themes[] = $value;
   }
   $owl->createField('field_drupal_theme', $themes)
