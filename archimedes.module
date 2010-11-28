@@ -81,6 +81,9 @@ function archimedes_export() {
 function archimedes_update() {
 
   global $db_url, $db_type;
+  
+  // find root loacation
+  $root = getcwd();
 
   // Produce a unique value to represent this instance of Drupal.
   $keys = module_invoke_all('archimedes_id');
@@ -99,15 +102,17 @@ function archimedes_update() {
     $owl->createField('body', variable_get('site_mission', 'No description has been set.'));
   }
 
+  // wont update via cron
   $protocol = strpos(strtolower($_SERVER['SERVER_PROTOCOL']),'https') === FALSE ? 'http://' : 'https://';
-  $owl->createField('field_servername', $protocol . $_SERVER["SERVER_NAME"]);
+  if ($_SERVER["SERVER_NAME"])
+    $owl->createField('field_servername', $protocol . $_SERVER["SERVER_NAME"]);
 
   $hostname = archimedes_shell_exec("hostname -f");
   $values = array();
   $values[] = archimedes_value($hostname,'nodereference')->addNode(array('title' => $hostname, 'type' => 'host'));
   $owl->createField('field_webserver', $values)
       ->invokeFacet();
-  $owl->createField('field_webroot', 'file://' . $_SERVER["DOCUMENT_ROOT"]);
+  $owl->createField('field_webroot', 'file://' . $root);
 
   $urls = array();
   if (!is_array($db_url)) {
@@ -151,13 +156,15 @@ function archimedes_update() {
     break;
   }
 
-  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $_SERVER['DOCUMENT_ROOT'] . base_path() . file_directory_path()));
+  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path() . file_directory_path()));
   $owl->createField('field_sitedata', $dataSize[0]);
 
-  $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $_SERVER['DOCUMENT_ROOT'] . base_path()));
+  $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path()));
   $owl->createField('field_sitesize', $rootSize[0]);
 
   $owl->createField('field_num_users', db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1); // subtract one for public user
+  
+  $owl->createField('field_drupal_nodes', db_result(db_query("SELECT COUNT(nid) FROM {node}")));
 
   $modules = $themes = array();
   foreach (module_list() as $module) {
@@ -177,7 +184,7 @@ function archimedes_update() {
   $owl->createField('field_drupal_mod', $modules)
       ->invokeFacet();
   
-  $result = db_query("SELECT d.name FROM {system} d WHERE d.status = 1 AND d.type = 'theme'");
+  $result = db_query("SELECT name FROM {system} WHERE status = 1 AND type = 'theme'");
   while ($theme = db_result($result)) {
     $info = drupal_parse_info_file(drupal_get_path('theme', $theme) . '/' . $theme . '.info');
     $node = array(

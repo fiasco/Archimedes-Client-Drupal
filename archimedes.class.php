@@ -96,7 +96,7 @@ class Archimedes {
     $message .= '--' . $boundary . "\r\n";
       
 
-    return mail($email, t('XML Update from') . ' ' . $site_name, $message, $headers);
+    return mail($email, 'XML Update from' . ' ' . $site_name, $message, $headers);
   }
 
   /**
@@ -303,6 +303,7 @@ Class Archimedes_drupalmod extends Archimedes_nodereference {
 
 Class Archimedes_gitrepo extends ANSValue {
   public function __construct($value) {
+    $this->ns = 'monitor-plugin:git';
     parent::__construct($value);
   }
   public function setRemoteName($name) {
