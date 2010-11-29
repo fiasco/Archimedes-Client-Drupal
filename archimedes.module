@@ -43,7 +43,6 @@ function archimedes_menu() {
 
 function archimedes_out() {
   $owl = archimedes_update();
-  
   $header = array('Name','Version');
   $rows = array(
     array('Site title',(string) $owl->getField('title')),
