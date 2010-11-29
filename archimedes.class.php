@@ -297,7 +297,7 @@ Class Archimedes_drupalmod extends Archimedes_nodereference {
     parent::__construct($value);
   }
   public function toArray() {
-    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('monitor-plugin:drupal-module','node:version'));
+    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('node:field_mod_version'));
   }
 }
 
@@ -311,7 +311,7 @@ Class Archimedes_gitrepo extends ANSValue {
     return $this;
   }
   public function toArray() {
-    return array('remote' => $this->getAttributeNS('monitor-plugin:git','git:remote'),'uri' => (string) $this->value);
+    return array('remote' => $this->getAttributeNS('git:remote'),'uri' => (string) $this->value);
   }
 }
 
