@@ -43,7 +43,7 @@ function archimedes_menu() {
 
 function archimedes_out() {
   $owl = archimedes_update();
-  $header = array('Name','Version');
+  $header = array('Name','Version','Description');
   $rows = array(
     array('Site title',(string) $owl->getField('title')),
     array('Description',(string) $owl->getField('body')),
@@ -57,6 +57,7 @@ function archimedes_out() {
     array('Site Data Size',(string) $owl->getField('field_sitedata')),
     array('Webroot Size',(string) $owl->getField('field_sitesize')),
     array('User Count',(string) $owl->getField('field_num_users')),
+    array('Node Count',(string) $owl->getField('field_drupal_nodes')),
     array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->toArray())),
     array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->toArray())),
   );
@@ -180,8 +181,10 @@ function archimedes_update() {
               ->addNode($node);
     $modules[] = $value;
   }
+  
   $owl->createField('field_drupal_mod', $modules)
       ->invokeFacet();
+  
   
   $result = db_query("SELECT name FROM {system} WHERE status = 1 AND type = 'theme'");
   while ($theme = db_result($result)) {
@@ -197,6 +200,8 @@ function archimedes_update() {
               
     $themes[] = $value;
   }
+  
+  
   $owl->createField('field_drupal_theme', $themes)
       ->invokeFacet();
 
