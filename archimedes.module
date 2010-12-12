@@ -175,9 +175,13 @@ function archimedes_update() {
       'field_dru_pkg' => $info['package'],
       'field_dru_proj' => $info['project'],
       'field_mod_version' => $info['version'],
+      'field_mod_url' => $info['project status url'],
       'type'    => 'drupal_module',
     );
-    $value = archimedes_value($info['name'], 'drupalmod')
+    if (!isset($node['field_dru_proj']) && isset($node['field_dru_pkg']) && (strpos($node['field_dru_pkg'], 'Core -') !== FALSE)) {
+      $node['field_dru_proj'] = 'drupal';
+    }
+    $value = archimedes_value($module, 'drupalmod')
               ->addNode($node);
     $modules[] = $value;
   }
@@ -193,9 +197,17 @@ function archimedes_update() {
       'title' => $info['name'],
       'body'  => $info['description'],
       'field_mod_version' => $info['version'],
+      'field_dru_proj' => $info['project'],
+      'field_mod_url' => $info['project status url'],
       'type'  => 'drupal_theme',
     );
-    $value = archimedes_value($info['name'], 'drupalmod')
+    if (!isset($node['field_dru_proj']) && in_array($theme, array('bluemarine', 'chameleon', 'garland', 'marvin', 'minnelli', 'pushbutton'))) {
+      // Unfortunately, there's no way to tell if a theme is part of core,
+      // so we must hard-code a list here.
+      $node['field_dru_proj'] = 'drupal';
+    }
+    
+    $value = archimedes_value($theme, 'drupalmod')
               ->addNode($node);
               
     $themes[] = $value;

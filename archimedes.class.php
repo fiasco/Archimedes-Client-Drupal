@@ -301,6 +301,17 @@ Class Archimedes_drupalmod extends Archimedes_nodereference {
   }
 }
 
+Class Archimedes_moodlemod extends Archimedes_nodereference {
+  
+  public function __construct($value) {
+    $this->ns = 'monitor-plugin:moodle-module';
+    parent::__construct($value);
+  }
+  public function toArray() {
+    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('monitor-plugin:moodle-module','node:version'));
+  }
+}
+
 Class Archimedes_gitrepo extends ANSValue {
   public function __construct($value) {
     $this->ns = 'monitor-plugin:git';
