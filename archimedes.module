@@ -42,7 +42,7 @@ function archimedes_menu() {
 
 
 function archimedes_out() {
-  $owl = archimedes_update();
+  $owl = archimedes_collect($_SERVER['SERVER_NAME'], $_SERVER['SERVER_PROTOCOL']);
   $header = array('Name','Version','Description');
   $rows = array(
     array('Site title',(string) $owl->getField('title')),
@@ -58,32 +58,38 @@ function archimedes_out() {
     array('Webroot Size',(string) $owl->getField('field_sitesize')),
     array('User Count',(string) $owl->getField('field_num_users')),
     array('Node Count',(string) $owl->getField('field_drupal_nodes')),
-    array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->toArray())),
-    array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->toArray())),
+//    array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->toArray())),
+//    array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->toArray())),
   );
- 
+
   drupal_alter('archimedes_rows',$rows,$owl);
-  
+
+  $themes = theme('table',$header,$owl->getField('field_drupal_theme')->toArray());
+  $modules = theme('table',$header,$owl->getField('field_drupal_mod')->toArray());
   $header = array('Component', 'Value');
   $output = '<p>This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.</p>';
   $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
-  return $output . theme('table', $header, $rows);
+  return $output . theme('table', $header, $rows) . 'Modules'  . $modules . 'Themes' . $themes;
 } // archimedes_out()
 
 
 function archimedes_export() {
-  $owl = archimedes_update();
+  $owl = archimedes_collect();
 
   return '<pre>' . htmlentities($owl->toXML()) . '</pre>';
 
 } // archimedes_export()
 
-function archimedes_update() {
+/**
+  * @param $server_name The name of the server.
+  * @param $protocol The protocol being used (either http or https).
+  */
+function archimedes_collect($server_name, $protocol) {
 
   global $db_url, $db_type;
-  
+
   // find root loacation
-  $root = getcwd();
+  $root = substr(dirname(__FILE__), 0, strpos(dirname(__FILE__), drupal_get_path('module', 'archimedes')));
 
   // Produce a unique value to represent this instance of Drupal.
   $keys = module_invoke_all('archimedes_id');
@@ -103,9 +109,9 @@ function archimedes_update() {
   }
 
   // wont update via cron
-  $protocol = strpos(strtolower($_SERVER['SERVER_PROTOCOL']),'https') === FALSE ? 'http://' : 'https://';
-  if ($_SERVER["SERVER_NAME"])
-    $owl->createField('field_servername', $protocol . $_SERVER["SERVER_NAME"]);
+  $protocol = strpos(strtolower($protocol),'https') === FALSE ? 'http://' : 'https://';
+  if ($server_name)
+    $owl->createField('field_servername', $protocol . $server_name);
 
   $hostname = archimedes_shell_exec("hostname -f");
   $values = array();
@@ -127,7 +133,7 @@ function archimedes_update() {
     $hostname = ($db['host'] == 'localhost') ? $hostname : $db['host'];
     $values[] = archimedes_value($hostname,'nodereference')->addNode(array('title' => $hostname, 'type' => 'host'));
   }
-  
+
   $owl->createField('field_dbhost', $values)
       ->invokeFacet();
   $owl->createField('field_dbname', $dbName);
@@ -160,10 +166,10 @@ function archimedes_update() {
   $owl->createField('field_sitedata', $dataSize[0]);
 
   $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path()));
-  $owl->createField('field_sitesize', $rootSize[0]);
+  $owl->createField('field_sitesize', $rootSize[0] - $dataSize[0]);
 
   $owl->createField('field_num_users', db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1); // subtract one for public user
-  
+
   $owl->createField('field_drupal_nodes', db_result(db_query("SELECT COUNT(nid) FROM {node}")));
 
   $modules = $themes = array();
@@ -185,11 +191,11 @@ function archimedes_update() {
               ->addNode($node);
     $modules[] = $value;
   }
-  
+
   $owl->createField('field_drupal_mod', $modules)
       ->invokeFacet();
-  
-  
+
+
   $result = db_query("SELECT name FROM {system} WHERE status = 1 AND type = 'theme'");
   while ($theme = db_result($result)) {
     $info = drupal_parse_info_file(drupal_get_path('theme', $theme) . '/' . $theme . '.info');
@@ -206,14 +212,14 @@ function archimedes_update() {
       // so we must hard-code a list here.
       $node['field_dru_proj'] = 'drupal';
     }
-    
+
     $value = archimedes_value($theme, 'drupalmod')
               ->addNode($node);
-              
+
     $themes[] = $value;
   }
-  
-  
+
+
   $owl->createField('field_drupal_theme', $themes)
       ->invokeFacet();
 
@@ -221,7 +227,7 @@ function archimedes_update() {
   drupal_alter('archimedes', $owl);
 
   return $owl;
-} // archimedes_update()
+} // archimedes_collect()
 
 /**
  * Implementation of hook_archimedes_id().
@@ -277,18 +283,20 @@ function archimedes_admin() {
 }
 
 /**
- * Send an report to the Archimedes server via email.
- *
- * Doesn't use Drupal's messaging system because the communication
- * with the server is independant of Drupal.
- */
-function archimedes_send() {
+  * Send a report to the Archimedes server via email.
+  *
+  * Doesn't use Drupal's messaging system because the communication
+  * with the server is independant of Drupal.
+  *
+  * @param $server_name name of the server
+  * @param $protocol protocol being used (either http or https)
+  */
+function archimedes_send($server_name, $protocol) {
   $server_email = variable_get('archimedes_server_email','');
   $server_key = variable_get('archimedes_server_key','');
   $site_name  = variable_get('site_name', 'unknown');
 
-  $owl = archimedes_update();
-
+  $owl = archimedes_collect($server_name, $protocol);
   if ($server_email != '') {
     $site_name  = variable_get('site_name', 'unknown');
     if ($owl->sendXML('Archimedes Server <' . $server_email . '>', $site_name, $server_key))
@@ -301,20 +309,27 @@ function archimedes_send() {
 }
 
 /**
- * Drupal UI callback to force Archimedes client to send a report.
- */
+  * Drupal UI callback to force Archimedes client to send a report.
+  */
 function archimedes_send_force() {
-  archimedes_send();
+  archimedes_send($_SERVER['SERVER_NAME'], $SERVER['SERVER_PROTOCOL']);
   drupal_goto('admin/reports/archimedes');
 }
 
 /**
- * Implementation of hook_cron().
- */
+  * Implementation of hook_cron().
+  */
 function archimedes_cron() {
+  if(isset($_SERVER['SERVER_NAME'])){
+    $server_name = $_SERVER['SERVER_NAME'];
+    $protocol = $_SERVER['SERVER_PROTOCOL'];
+  }
+  else{
+
+  }
   $cron_time = variable_get('archimedes_cron_last',0);
   if (time() > $cron_time + variable_get('archimedes_cron_update',1)*86400) {
-    archimedes_send();
+    archimedes_send($server_name, $protocol);
     variable_set('archimedes_cron_last',time());
   }
 }
