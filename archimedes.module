@@ -1,7 +1,5 @@
 <?php
 
-include "archimedes.class.php";
-
 /**
 * Implementation of hook_menu().
 */
@@ -42,6 +40,7 @@ function archimedes_menu() {
 
 
 function archimedes_out() {
+  module_load_include('php','archimedes.class','archimedes');
   $owl = archimedes_collect();
 
   $header = array('Component', 'Value');
@@ -77,6 +76,7 @@ function archimedes_out() {
 
 
 function archimedes_export() {
+  module_load_include('php','archimedes.class','archimedes');
   $owl = archimedes_collect();
 
   return '<pre>' . htmlentities($owl->toXML()) . '</pre>';
@@ -293,6 +293,7 @@ function archimedes_admin() {
   * @param $protocol protocol being used (either http or https)
   */
 function archimedes_send() {
+  module_load_include('php','archimedes.class','archimedes');
   $server_email = variable_get('archimedes_server_email','');
   $server_key = variable_get('archimedes_server_key','');
   $site_name  = variable_get('site_name', 'unknown');
