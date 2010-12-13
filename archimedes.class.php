@@ -59,7 +59,7 @@ class Archimedes {
   public function sendXML($email, $site_name, $key) {
     $boundary = '-----=' . md5(uniqid(rand()));
     $attachment = $this->toXML();
-    
+
     $headers = 'From: ' . $site_name . ' <' . $this->author . '>' . "\r\n";
     $headers .= 'Content-Type: multipart/mixed; boundary="' . $boundary . '"' . "\r\n";
     $headers .= 'Mime-Version: 1.0' . "\r\n";
@@ -70,23 +70,23 @@ class Archimedes {
     $message .= "Archimedes XML update attached.\r\n";
 
     $message .= '--' . $boundary . "\r\n";
-    
+
     if ($key != '') { // encrypt xml attachment and send environment keys
       $pubkey = openssl_pkey_get_public($key);
       openssl_seal($attachment,$sealed,$ekeys,array($pubkey));
       openssl_free_key($pubkey);
-      
+
       $attachment = $sealed;
-      
+
       $message .= "Content-Type: text/plain\r\n";
       $message .= "Content-Transfer-Encoding: base64\r\n\r\n";
 
       $message .= chunk_split(base64_encode("EKEY: " . $ekeys[0]));
-    
+
       $message .= '--' . $boundary . "\r\n";
-      
+
     }
-      
+
     $attachment = chunk_split(base64_encode($attachment));
 
     $message .= 'Content-Type: application/xml; name="data.xml"' . "\r\n";
@@ -94,7 +94,7 @@ class Archimedes {
     $message .= 'Content-Disposition: attachment; filename="data.xml"' . "\r\n\r\n";
     $message .= $attachment . "\r\n";
     $message .= '--' . $boundary . "\r\n";
-      
+
 
     return mail($email, 'XML Update from' . ' ' . $site_name, $message, $headers);
   }
@@ -138,7 +138,7 @@ Class ArchimedesField {
 
   public function addValue($value) {
     if (!is_object($value)) {
-      
+
       $value = new ANSValue($value);
     }
     $this->values[] = $value;
@@ -175,7 +175,7 @@ Class ArchimedesField {
     }
     return $field;
   }
-  
+
   public function __toString() {
     $list = array();
     foreach($this->values as $value) {
@@ -194,11 +194,11 @@ Class ArchimedesField {
 
 Class ANSValue extends DOMElement {
 
-  
+
   // Namespace attributes.
   protected $ns_attr = array();
   protected $ns = null;
-  
+
   // Normal attributes.
   protected $attr = array();
 
@@ -223,11 +223,11 @@ Class ANSValue extends DOMElement {
     $this->ns_attr[$name] = $value;
     return $this;
   }
-  
+
   public function getAttribute($name) {
     return $this->attr[$name];
   }
-  
+
   public function getAttributeNS($name) {
     return $this->ns_attr[$name];
   }
@@ -291,13 +291,24 @@ Class Archimedes_userreference extends ANSValue {
 }
 
 Class Archimedes_drupalmod extends Archimedes_nodereference {
-  
+
   public function __construct($value) {
     $this->ns = 'monitor-plugin:drupal-module';
     parent::__construct($value);
   }
   public function toArray() {
     return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('node:field_mod_version'), 'desc' => $this->getAttributeNS('node:body'));
+  }
+}
+
+Class Archimedes_moodlemod extends Archimedes_nodereference {
+
+  public function __construct($value) {
+    $this->ns = 'monitor-plugin:moodle-module';
+    parent::__construct($value);
+  }
+  public function toArray() {
+    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('monitor-plugin:moodle-module','node:version'));
   }
 }
 

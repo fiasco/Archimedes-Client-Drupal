@@ -45,7 +45,7 @@ function archimedes_menu() {
 
 
 function archimedes_out() {
-  $owl = archimedes_update();
+  $owl = archimedes_collect();
   $header = array('Name','Version','Description');
   $rows = array(
     array('Site title',(string) $owl->getField('title')),
@@ -60,35 +60,42 @@ function archimedes_out() {
     array('Site Data Size',(string) $owl->getField('field_sitedata')),
     array('Webroot Size',(string) $owl->getField('field_sitesize')),
     array('User Count',(string) $owl->getField('field_num_users')),
-    array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->toArray())),
-    array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->toArray())),
+    array('Node Count',(string) $owl->getField('field_drupal_nodes')),
+//    array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->toArray())),
+//    array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->toArray())),
   );
- 
+
   // Allow other modules to add data via hook_archimedes_data.
   foreach (module_implements('archimedes_rows') as $module) {
     $rows = module_invoke($module,'archimedes_rows', $rows, $owl);
   }
-  
+
+  $themes = theme('table',$header,$owl->getField('field_drupal_theme')->toArray());
+  $modules = theme('table',$header,$owl->getField('field_drupal_mod')->toArray());
   $header = array('Component', 'Value');
   $output = '<p>This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.</p>';
-  $output .= '<p>' . l('Force server update','admin/logs/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
-  return $output . theme('table', $header, $rows);
+  $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
+  return $output . theme('table', $header, $rows) . 'Modules'  . $modules . 'Themes' . $themes;
 } // archimedes_out()
 
 
 function archimedes_export() {
-  $owl = archimedes_update();
+  $owl = archimedes_collect();
 
   return '<pre>' . htmlentities($owl->toXML()) . '</pre>';
 
 } // archimedes_export()
 
-function archimedes_update() {
-  include dirname(__FILE__) . '/archimedes.class.php';
-  global $db_url, $db_type;
-  
+/**
+  * @param $server_name The name of the server.
+  * @param $protocol The protocol being used (either http or https).
+  */
+function archimedes_collect() {
+
+  global $db_url, $db_type, $base_url;
+
   // find root loacation
-  $root = getcwd();
+  $root = substr(dirname(__FILE__), 0, strpos(dirname(__FILE__), drupal_get_path('module', 'archimedes')));
 
   // Produce a unique value to represent this instance of Drupal.
   $keys = module_invoke_all('archimedes_id');
@@ -107,10 +114,7 @@ function archimedes_update() {
     $owl->createField('body', variable_get('site_mission', 'No description has been set.'));
   }
 
-  // wont update via cron
-  $protocol = strpos(strtolower($_SERVER['SERVER_PROTOCOL']),'https') === FALSE ? 'http://' : 'https://';
-  if ($_SERVER["SERVER_NAME"])
-    $owl->createField('field_servername', $protocol . $_SERVER["SERVER_NAME"]);
+  $owl->createField('field_servername', $base_url);
 
   $hostname = archimedes_shell_exec("hostname -f");
   $values = array();
@@ -129,10 +133,10 @@ function archimedes_update() {
   foreach($urls as $url) {
     $db = parse_url($url);
     $dbName = substr($db['path'],1);
-    $hostname = ($db['host'] == 'localhost') ? $hostname : $db['host'];
-    $values[] = archimedes_value($hostname,'nodereference')->addNode(array('title' => $hostname, 'type' => 'host'));
+    $dbhost = ($db['host'] == 'localhost' || $db['host'] == '127.0.0.1') ? $hostname : $db['host'];
+    $values[] = archimedes_value($dbhost,'nodereference')->addNode(array('title' => $dbhost, 'type' => 'host'));
   }
-  
+
   $owl->createField('field_dbhost', $values)
       ->invokeFacet();
   $owl->createField('field_dbname', $dbName);
@@ -165,10 +169,10 @@ function archimedes_update() {
   $owl->createField('field_sitedata', $dataSize[0]);
 
   $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path()));
-  $owl->createField('field_sitesize', $rootSize[0]);
+  $owl->createField('field_sitesize', $rootSize[0] - $dataSize[0]);
 
   $owl->createField('field_num_users', db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1); // subtract one for public user
-  
+
   $owl->createField('field_drupal_nodes', db_result(db_query("SELECT COUNT(nid) FROM {node}")));
 
   $modules = $themes = array();
@@ -190,10 +194,9 @@ function archimedes_update() {
               ->addNode($node);
     $modules[] = $value;
   }
-  
   $owl->createField('field_drupal_mod', $modules)
       ->invokeFacet();
-  
+
   $result = db_query("SELECT * FROM {system} WHERE status = 1 AND type = 'theme'");
   while ($theme = db_fetch_array($result)) {
     $node = array(
@@ -211,10 +214,9 @@ function archimedes_update() {
     }
     $value = archimedes_value($theme['name'], 'drupalmod')
               ->addNode($node);
-              
+
     $themes[] = $value;
   }
-  
   $owl->createField('field_drupal_theme', $themes)
       ->invokeFacet();
 
@@ -224,15 +226,16 @@ function archimedes_update() {
   }
 
   return $owl;
-} // archimedes_update()
+} // archimedes_collect()
 
 /**
  * Implementation of hook_archimedes_id().
  */
 function archimedes_archimedes_id() {
-  global $db_url;
+  global $db_url, $base_url;
   $url = (is_array($db_url) ? implode('', $db_url) : $db_url);
-  return $_SERVER['SERVER_NAME'] . $url;
+  $urls = parse_url($base_url);
+  return $urls['host'] . $url;
 }
 
 
@@ -259,7 +262,7 @@ function archimedes_admin() {
     '#default_value' => variable_get('archimedes_server_key', ''),
     '#description' => t('Set the public key for the Archimedes server. This can be found on the Archimedes server administration pages. If left blank mail will be unencrypted.'),
   );
-  
+
   $form['archimedes_description'] = array(
     '#type' => 'textfield',
     '#title' => t('Description node'),
@@ -281,18 +284,20 @@ function archimedes_admin() {
 }
 
 /**
- * Send an report to the Archimedes server via email.
- *
- * Doesn't use Drupal's messaging system because the communication
- * with the server is independant of Drupal.
- */
+  * Send a report to the Archimedes server via email.
+  *
+  * Doesn't use Drupal's messaging system because the communication
+  * with the server is independant of Drupal.
+  *
+  * @param $server_name name of the server
+  * @param $protocol protocol being used (either http or https)
+  */
 function archimedes_send() {
   $server_email = variable_get('archimedes_server_email','');
   $server_key = variable_get('archimedes_server_key','');
   $site_name  = variable_get('site_name', 'unknown');
 
-  $owl = archimedes_update();
-
+  $owl = archimedes_collect();
   if ($server_email != '') {
     $site_name  = variable_get('site_name', 'unknown');
     if ($owl->sendXML('Archimedes Server <' . $server_email . '>', $site_name, $server_key))
@@ -305,21 +310,24 @@ function archimedes_send() {
 }
 
 /**
- * Drupal UI callback to force Archimedes client to send a report.
- */
+  * Drupal UI callback to force Archimedes client to send a report.
+  */
 function archimedes_send_force() {
   archimedes_send();
   drupal_goto('admin/logs/archimedes');
 }
 
 /**
- * Implementation of hook_cron().
- */
+  * Implementation of hook_cron().
+  */
 function archimedes_cron() {
-  $cron_time = variable_get('archimedes_cron_last',0);
-  if (time() > $cron_time + variable_get('archimedes_cron_update',1)*86400) {
-    archimedes_send();
-    variable_set('archimedes_cron_last',time());
+  global $base_url;
+  if($base_url != 'http://default'){
+    $cron_time = variable_get('archimedes_cron_last',0);
+    if (time() > $cron_time + variable_get('archimedes_cron_update',1)*86400) {
+      archimedes_send();
+      variable_set('archimedes_cron_last',time());
+    }
   }
 }
 
