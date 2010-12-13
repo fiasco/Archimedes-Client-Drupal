@@ -127,8 +127,8 @@ function archimedes_collect() {
   foreach($urls as $url) {
     $db = parse_url($url);
     $dbName = substr($db['path'],1);
-    $hostname = ($db['host'] == 'localhost') ? $hostname : $db['host'];
-    $values[] = archimedes_value($hostname,'nodereference')->addNode(array('title' => $hostname, 'type' => 'host'));
+    $dbhost = ($db['host'] == 'localhost' || $db['host'] == '127.0.0.1') ? $hostname : $db['host'];
+    $values[] = archimedes_value($dbhost,'nodereference')->addNode(array('title' => $dbhost, 'type' => 'host'));
   }
 
   $owl->createField('field_dbhost', $values)
