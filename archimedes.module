@@ -40,7 +40,7 @@ function archimedes_menu() {
 
 
 function archimedes_out() {
-  module_load_include('php','archimedes.class','archimedes');
+  module_load_include('php','archimedes','archimedes.class');
   $owl = archimedes_collect();
 
   $header = array('Component', 'Value');
@@ -76,7 +76,7 @@ function archimedes_out() {
 
 
 function archimedes_export() {
-  module_load_include('php','archimedes.class','archimedes');
+  module_load_include('php','archimedes','archimedes.class');
   $owl = archimedes_collect();
 
   return '<pre>' . htmlentities($owl->toXML()) . '</pre>';
@@ -88,7 +88,6 @@ function archimedes_export() {
   * @param $protocol The protocol being used (either http or https).
   */
 function archimedes_collect() {
-
   global $db_url, $db_type, $base_url;
 
   // find root loacation
@@ -293,7 +292,7 @@ function archimedes_admin() {
   * @param $protocol protocol being used (either http or https)
   */
 function archimedes_send() {
-  module_load_include('php','archimedes.class','archimedes');
+  module_load_include('php','archimedes','archimedes.class');
   $server_email = variable_get('archimedes_server_email','');
   $server_key = variable_get('archimedes_server_key','');
   $site_name  = variable_get('site_name', 'unknown');
