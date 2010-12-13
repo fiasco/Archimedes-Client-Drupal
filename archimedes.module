@@ -43,7 +43,8 @@ function archimedes_menu() {
 
 function archimedes_out() {
   $owl = archimedes_collect();
-  $header = array('Name','Version','Description');
+  
+  $header = array('Component', 'Value');
   $rows = array(
     array('Site title',(string) $owl->getField('title')),
     array('Description',(string) $owl->getField('body')),
@@ -58,18 +59,20 @@ function archimedes_out() {
     array('Webroot Size',(string) $owl->getField('field_sitesize')),
     array('User Count',(string) $owl->getField('field_num_users')),
     array('Node Count',(string) $owl->getField('field_drupal_nodes')),
-//    array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->toArray())),
-//    array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->toArray())),
   );
 
   drupal_alter('archimedes_rows',$rows,$owl);
+  $table = theme('table', $header, $rows);
 
-  $themes = theme('table',$header,$owl->getField('field_drupal_theme')->toArray());
+  $header = array('Modules','Version','Description');
   $modules = theme('table',$header,$owl->getField('field_drupal_mod')->toArray());
-  $header = array('Component', 'Value');
+
+  $header = array('Themes','Version','Description');
+  $themes = theme('table',$header,$owl->getField('field_drupal_theme')->toArray());
+
   $output = '<p>This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.</p>';
   $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
-  return $output . theme('table', $header, $rows) . 'Modules'  . $modules . 'Themes' . $themes;
+  return $output . $table . $modules . $themes;
 } // archimedes_out()
 
 
