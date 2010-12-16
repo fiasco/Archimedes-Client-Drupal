@@ -177,6 +177,7 @@ function archimedes_collect() {
     $node = array(
       'title'   => $info['name'],
       'body'    => $info['description'],
+      'field_name' => $module,
       'field_dru_pkg' => $info['package'],
       'field_dru_proj' => $info['project'],
       'field_mod_version' => $info['version'],
@@ -186,7 +187,7 @@ function archimedes_collect() {
     if (!isset($node['field_dru_proj']) && isset($node['field_dru_pkg']) && (strpos($node['field_dru_pkg'], 'Core -') !== FALSE)) {
       $node['field_dru_proj'] = 'drupal';
     }
-    $value = archimedes_value($module, 'drupalmod')
+    $value = archimedes_value($node['title'], 'drupalmod')
               ->addNode($node);
     $modules[] = $value;
   }
@@ -201,6 +202,7 @@ function archimedes_collect() {
     $node = array(
       'title' => $info['name'],
       'body'  => $info['description'],
+      'field_name' => $theme,
       'field_mod_version' => $info['version'],
       'field_dru_proj' => $info['project'],
       'field_mod_url' => $info['project status url'],
@@ -212,7 +214,7 @@ function archimedes_collect() {
       $node['field_dru_proj'] = 'drupal';
     }
 
-    $value = archimedes_value($theme, 'drupalmod')
+    $value = archimedes_value($node['title'], 'drupalmod')
               ->addNode($node);
 
     $themes[] = $value;
