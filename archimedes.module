@@ -45,6 +45,7 @@ function archimedes_menu() {
 
 
 function archimedes_out() {
+  include_once dirname(__FILE__) . "/archimedes.class.php";
   $owl = archimedes_collect();
   $header = array('Component', 'Value');
   $rows = array(
@@ -61,8 +62,6 @@ function archimedes_out() {
     array('Webroot Size',(string) $owl->getField('field_sitesize')),
     array('User Count',(string) $owl->getField('field_num_users')),
     array('Node Count',(string) $owl->getField('field_drupal_nodes')),
-//    array('Modules',theme('table',$header,$owl->getField('field_drupal_mod')->toArray())),
-//    array('Themes',theme('table',$header,$owl->getField('field_drupal_theme')->toArray())),
   );
 
   // Allow other modules to add data via hook_archimedes_data.
@@ -78,12 +77,13 @@ function archimedes_out() {
   $themes = theme('table',$header,$owl->getField('field_drupal_theme')->toArray());
 
   $output = '<p>This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.</p>';
-  $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
+  $output .= '<p>' . l('Force server update','admin/logs/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
   return $output . $table . $modules . $themes;
 } // archimedes_out()
 
 
 function archimedes_export() {
+  include_once dirname(__FILE__) . "/archimedes.class.php";
   $owl = archimedes_collect();
 
   return '<pre>' . htmlentities($owl->toXML()) . '</pre>';
@@ -185,6 +185,7 @@ function archimedes_collect() {
     $node = array(
       'title'   => $info['name'],
       'body'    => $info['description'],
+      'field_name' => $module,
       'field_dru_pkg' => $info['package'],
       'field_dru_proj' => $info['project'],
       'field_mod_version' => $info['version'],
@@ -194,7 +195,7 @@ function archimedes_collect() {
     if (!isset($node['field_dru_proj']) && isset($node['field_dru_pkg']) && (strpos($node['field_dru_pkg'], 'Core -') !== FALSE)) {
       $node['field_dru_proj'] = 'drupal';
     }
-    $value = archimedes_value($module, 'drupalmod')
+    $value = archimedes_value($node['title'], 'drupalmod')
               ->addNode($node);
     $modules[] = $value;
   }
@@ -206,12 +207,13 @@ function archimedes_collect() {
     $node = array(
       'title' => $theme['name'],
       'body'  => $theme['description'],
+      'field_name' => $theme['name'],
       'field_dru_proj' => $info['project'],
       'field_mod_url' => $info['project status url'],
       'field_mod_version' => '5.x',
       'type'  => 'drupal_theme',
     );
-    if (!isset($node['field_dru_proj']) && in_array($theme, array('bluemarine', 'chameleon', 'garland', 'marvin', 'minnelli', 'pushbutton'))) {
+    if (!isset($node['field_dru_proj']) && in_array($theme['name'], array('bluemarine', 'chameleon', 'garland', 'marvin', 'minnelli', 'pushbutton'))) {
       // Unfortunately, there's no way to tell if a theme is part of core,
       // so we must hard-code a list here.
       $node['field_dru_proj'] = 'drupal';
@@ -297,6 +299,7 @@ function archimedes_admin() {
   * @param $protocol protocol being used (either http or https)
   */
 function archimedes_send() {
+  include_once dirname(__FILE__) . "/archimedes.class.php";
   $server_email = variable_get('archimedes_server_email','');
   $server_key = variable_get('archimedes_server_key','');
   $site_name  = variable_get('site_name', 'unknown');
