@@ -345,3 +345,53 @@ function archimedes_value($value, $type = '') {
   }
   return new $class($value);
 }
+
+/**
+ * Validate a request for remote access via Archimedes.
+ */
+function ArchimedesValidateRemoteRequest($hash, $key) {
+  foreach (array('h', 'w', 't', 'i') as $k) {
+    if (!isset($_GET[$k])) {
+      return FALSE;
+    }
+  }
+
+  // $_GET['i'] is the unique identifier for this site md5 hashed with the time.
+  // If it doesn't match then its likely this request is forged. If the requester
+  // does know the unique hash of this site then we will trust this request is
+  // not a spammer.
+  if ($_GET['i'] != md5($_GET['t'] . $hash)) {
+    return FALSE;
+  }
+
+  // Perform a back channel request to the server to ask if the requested user is
+  // allowed super user access. To do this we formulate a hash token and encrypt
+  // it. If the unencrypted hash does not return to us, then the user is not
+  // allowed access.
+
+  // Add a random number prefix incase the time here is the same as the time passed
+  // in the original request (cause then the hashes would be the same).
+  $token = md5(mt_rand(1000, 10000) . time());
+
+  $query = array(
+    'token' => $token,
+    'whoami' => $_GET['w'],
+  );
+
+  $pubkey = openssl_pkey_get_public($key);
+  openssl_seal(serialize($query),$sealed,$ekeys,array($pubkey));
+  openssl_free_key($pubkey);
+
+  $url = 'http://' . $_GET['h'] . '/archimedes-server/verify-user?ekey=' . rawurlencode($ekeys[0]) . '&data=' . rawurlencode($sealed);
+
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+
+  $return_token = curl_exec($ch);
+
+  curl_close($ch);
+
+  return $return_token == $token;
+}

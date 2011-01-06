@@ -35,6 +35,13 @@ function archimedes_menu() {
     'access arguments' => array('access administration pages'),
     'type' => MENU_LOCAL_TASK,
    );
+   $items['archimedes/login'] = array(
+    'page callback' => 'archimedes_request_admin_access',
+    'type' => MENU_CALLBACK,
+    // Access to callback is very open.
+    'access arguments' => array('string'),
+    'access callback' => 'is_string',
+   );
   return $items;
 } // archimedes_menu()
 
@@ -362,3 +369,29 @@ function archimedes_shell_exec($cmd) {
 
   return $output[0];
 } // archimedes_shell_exec()
+
+/**
+ * Request Admin access to this Drupal site.
+ *
+ * If function is successfull, the user will be granted
+ * user uid:1 access.
+ */
+function archimedes_request_admin_access() {
+  global $user;
+  if ($user->uid == 1) {
+    drupal_goto('<front>');
+  }
+  $keys = module_invoke_all('archimedes_id');
+  sort($keys);
+  $hash = md5(implode('', $keys));
+
+  module_load_include('php', 'archimedes', 'archimedes.class');
+
+  if (!ArchimedesValidateRemoteRequest($hash, variable_get('archimedes_server_key',''))) {
+    return drupal_access_denied();
+  }
+
+  $user = user_load(array('uid' => 1));
+  drupal_set_message("Login from administration server was successful");
+  drupal_goto('<front>');
+}
