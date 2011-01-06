@@ -387,11 +387,23 @@ function archimedes_request_admin_access() {
 
   module_load_include('php', 'archimedes', 'archimedes.class');
 
-  if (!ArchimedesValidateRemoteRequest($hash, variable_get('archimedes_server_key',''))) {
+  $request = new ArchimedesRemoteRequest();
+
+  // State machine.
+  // When a user is validated, this code will execute.
+  if (isset($_SESSION['archimedes_token']) && $request->validateToken($_SESSION['archimedes_token'])) {
+      $user = user_load(array('uid' => 1));
+      unset($_SESSION['archimedes_token']);
+      drupal_set_message("Login from administration server was successful");
+      drupal_goto('<front>');
+  }
+
+  if (!$token = $request->getToken($hash, variable_get('archimedes_server_key',''))) {
     return drupal_access_denied();
   }
 
-  $user = user_load(array('uid' => 1));
-  drupal_set_message("Login from administration server was successful");
-  drupal_goto('<front>');
+  $_SESSION['archimedes_token'] = $token;
+
+  $request->validateRemoteUser();
+  return drupal_access_denied();
 }
