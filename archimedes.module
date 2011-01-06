@@ -40,12 +40,11 @@ function archimedes_menu() {
     'access' => user_access('access administration pages'),
     'type' => MENU_LOCAL_TASK,
    );
-   $items['archimedes/login'] = array(
-    'page callback' => 'archimedes_request_admin_access',
+   $items[] = array(
+    'path' => 'archimedes/login',
+    'callback' => 'archimedes_request_admin_access',
     'type' => MENU_CALLBACK,
-    // Access to callback is very open.
-    'access arguments' => array('string'),
-    'access callback' => 'is_string',
+    'access' => TRUE,
    );
   return $items;
 } // archimedes_menu()
@@ -379,7 +378,7 @@ function archimedes_request_admin_access() {
   sort($keys);
   $hash = md5(implode('', $keys));
 
-  module_load_include('php', 'archimedes', 'archimedes.class');
+  include dirname(__FILE__) . '/archimedes.class.php';
 
   if (!ArchimedesValidateRemoteRequest($hash, variable_get('archimedes_server_key',''))) {
     return drupal_access_denied();
