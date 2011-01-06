@@ -52,19 +52,19 @@ function archimedes_out() {
 
   $header = array('Component', 'Value');
   $rows = array(
-    array('Site title',(string) $owl->getField('title')),
-    array('Description',(string) $owl->getField('body')),
-    array('Servername',(string) $owl->getField('field_servername')),
-    array('Web Server',(string) $owl->getField('field_webserver')),
-    array('Web Root',(string) $owl->getField('field_webroot')),
-    array('DB Host',(string) $owl->getField('field_dbhost')),
-    array('DB Name',(string) $owl->getField('field_dbname')),
-    array('Users',(string) $owl->getField('field_users')),
-    array('DB Size',(string) $owl->getField('field_db_size')),
-    array('Site Data Size',(string) $owl->getField('field_sitedata')),
-    array('Webroot Size',(string) $owl->getField('field_sitesize')),
-    array('User Count',(string) $owl->getField('field_num_users')),
-    array('Node Count',(string) $owl->getField('field_drupal_nodes')),
+    array(t('Site title'),(string) $owl->getField('title')),
+    array(t('Description'),(string) $owl->getField('body')),
+    array(t('Servername'),(string) $owl->getField('field_servername')),
+    array(t('Web Server'),(string) $owl->getField('field_webserver')),
+    array(t('Web Root'),(string) $owl->getField('field_webroot')),
+    array(t('DB Host'),(string) $owl->getField('field_dbhost')),
+    array(t('DB Name'),(string) $owl->getField('field_dbname')),
+    array(t('Users'),(string) $owl->getField('field_users')),
+    array(t('DB Size'),(string) $owl->getField('field_db_size')),
+    array(t('Site Data Size'),(string) $owl->getField('field_sitedata')),
+    array(t('Webroot Size'),(string) $owl->getField('field_sitesize')),
+    array(t('User Count'),(string) $owl->getField('field_num_users')),
+    array(t('Node Count'),(string) $owl->getField('field_drupal_nodes')),
   );
 
   drupal_alter('archimedes_rows',$rows,$owl);
@@ -76,7 +76,7 @@ function archimedes_out() {
   $header = array('Themes','Version','Description');
   $themes = theme('table',$header,$owl->getField('field_drupal_theme')->toArray());
 
-  $output = '<p>This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.</p>';
+  $output = '<p>' . t('This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.'). '</p>';
   $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
   return $output . $table . $modules . $themes;
 } // archimedes_out()
@@ -298,6 +298,13 @@ function archimedes_admin() {
     '#default_value' => variable_get('archimedes_cron_update', 1),
     '#description' => t('Set Archimedes minimum cron update period.'),
   );
+  
+  $form['archimedes_cron_first'] = array(
+    '#type' => 'select',
+    '#title' => t('Update on first cron after hour'),
+    '#options' => range(0, 23),
+    '#description' => t('Set the hour at which Archimedes collects and sends its data. This should ideally be a period with minimal traffic.'),
+  );
 
   return system_settings_form($form);
 }
@@ -342,9 +349,10 @@ function archimedes_send_force() {
   */
 function archimedes_cron() {
   global $base_url;
-  if($base_url != 'http://default'){
-    $cron_time = variable_get('archimedes_cron_last',0);
-    if (time() > $cron_time + variable_get('archimedes_cron_update',1)*86400) {
+  if($base_url != 'http://default'){ // must have accurate servername
+    $last_day = strtotime(date('Ymd',variable_get('archimedes_cron_last',0)));
+    $curr_day = strtotime(date('Ymd'));
+    if (time() > $curr_day + variable_get('archimedes_cron_first',1)*3600 && time() > $last_day + variable_get('archimedes_cron_update',1)*86400) {
       archimedes_send();
       variable_set('archimedes_cron_last',time());
     }
