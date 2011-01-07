@@ -318,21 +318,37 @@ function archimedes_admin() {
   * @param $server_name name of the server
   * @param $protocol protocol being used (either http or https)
   */
-function archimedes_send() {
-  module_load_include('php','archimedes','archimedes.class');
-  $server_email = variable_get('archimedes_server_email','');
-  $server_key = variable_get('archimedes_server_key','');
-  $site_name  = variable_get('site_name', 'unknown');
-
-  $owl = archimedes_collect();
-  if ($server_email != '') {
+function archimedes_send($unencrypt = false, $mail = null) {
+  global $base_url;
+  if($base_url != 'http://default'){ // must have accurate servername
+    module_load_include('php','archimedes','archimedes.class');
+    if (isset($mail)) {
+      $server_email = $mail;
+    } else {
+      $server_email = variable_get('archimedes_server_email','');
+    }
+    if ($unencrypt) {
+      $server_key = '';
+    } else {
+      $server_key = variable_get('archimedes_server_key','');
+    }
     $site_name  = variable_get('site_name', 'unknown');
-    if ($owl->sendXML('Archimedes Server <' . $server_email . '>', $site_name, $server_key))
-      drupal_set_message('Update sent successfully via email to '  . $server_email . '. This many take some time to become visible on the server.');
-    else
-      drupal_set_message('Update failed to send for an unknown reason.','error');
+  
+    $owl = archimedes_collect();
+    if ($server_email != '') {
+      $site_name  = variable_get('site_name', 'unknown');
+      if ($owl->sendXML('Archimedes Server <' . $server_email . '>', $site_name, $server_key))
+        drupal_set_message('Update sent successfully via email to '  . $server_email . '. This many take some time to become visible on the server.');
+      else
+        drupal_set_message('Update failed to send for an unknown reason.','error');
+    } else {
+      drupal_set_message('Update failed to send as the ' . l('server email address','admin/reports/archimedes/settings') . ' is not yet set.','error');
+    }
+    
+    variable_set('archimedes_cron_last',time());
+  
   } else {
-    drupal_set_message('Update failed to send as the ' . l('server email address','admin/reports/archimedes/settings') . ' is not yet set.','error');
+    drupal_set_message('Cannot accurately determine servername. You should set this in settings.php. Update was not sent.','warning');
   }
 }
 
@@ -348,14 +364,10 @@ function archimedes_send_force() {
   * Implementation of hook_cron().
   */
 function archimedes_cron() {
-  global $base_url;
-  if($base_url != 'http://default'){ // must have accurate servername
-    $last_day = strtotime(date('Ymd',variable_get('archimedes_cron_last',0)));
-    $curr_day = strtotime(date('Ymd'));
-    if (time() > $curr_day + variable_get('archimedes_cron_first',1)*3600 && time() > $last_day + variable_get('archimedes_cron_update',1)*86400) {
-      archimedes_send();
-      variable_set('archimedes_cron_last',time());
-    }
+  $last_day = strtotime(date('Ymd',variable_get('archimedes_cron_last',0)));
+  $curr_day = strtotime(date('Ymd'));
+  if (time() > $curr_day + variable_get('archimedes_cron_first',1)*3600 && time() > $last_day + variable_get('archimedes_cron_update',1)*86400) {
+    archimedes_send();
   }
 }
 
