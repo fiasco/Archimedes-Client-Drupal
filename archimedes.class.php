@@ -308,7 +308,7 @@ Class Archimedes_moodlemod extends Archimedes_nodereference {
     parent::__construct($value);
   }
   public function toArray() {
-    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('monitor-plugin:moodle-module','node:version'));
+    return array('name' => (string) $this->value, 'version' => $this->getAttributeNS('node:field_mod_version','node:version'), 'instances' => $this->getAttributeNS('node:instances'));
   }
 }
 
