@@ -65,6 +65,7 @@ function archimedes_out() {
     array(t('Webroot Size'),(string) $owl->getField('field_sitesize')),
     array(t('User Count'),(string) $owl->getField('field_num_users')),
     array(t('Node Count'),(string) $owl->getField('field_drupal_nodes')),
+    array(t('Directory Hash'), (string) $owl->getFIeld('field_directory_hash')),
   );
 
   drupal_alter('archimedes_rows',$rows,$owl);
@@ -91,13 +92,39 @@ function archimedes_export() {
 } // archimedes_export()
 
 /**
-  * @param $server_name The name of the server.
-  * @param $protocol The protocol being used (either http or https).
+  * Recursively get the md5 hash of a directory. Ignores the files directory.
+  *
+  * @param dir the directory to start hashing from (drupal root)
+  *
+  * @return the md5 hash of the entire directory
   */
-function archimedes_collect() {
-  global $db_url, $db_type, $base_url;
+function archimedes_md5($dir) {
+  if (!is_dir($dir)) {
+    return false;
+  }
 
-  // find root loacation
+  $filemd5s = array();
+  $d = dir($dir);
+
+  while (($entry = $d->read()) !== false)  {
+    if ($entry != '.' && $entry != '..')  {
+      $pattern = '#(\w*/)*sites/\w*/files#';
+      if (is_dir($dir . '/' . $entry) && !preg_match($pattern, $dir . '/' . $entry))  {
+        $filemd5s[] = archimedes_md5($dir . '/' . $entry);
+      }
+      else  {
+        $filemd5s[] = md5_file($dir . '/' . $entry);
+      }
+    }
+  }
+
+  $d->close();
+  //sort the md5s before concat so ensure order of files doesn't affect it.
+  asort($filemd5s);
+  return md5(implode('', $filemd5s));
+}
+
+function archimedes_find_root() {
   if (!empty($_SERVER['DOCUMENT_ROOT'])) {
     $root = $_SERVER['DOCUMENT_ROOT'];
   }
@@ -107,6 +134,15 @@ function archimedes_collect() {
   else {
     $root = substr(dirname(__FILE__), 0, strpos(dirname(__FILE__), drupal_get_path('module', 'archimedes')));
   }
+
+  return $root;
+}
+
+function archimedes_collect() {
+  global $db_url, $db_type, $base_url;
+
+  $root = archimedes_find_root();
+
   if (empty($root)) {
     watchdog('Archimedes', "Cannot find Drupal root", array(), WATCHDOG_ERROR);
     return;
@@ -242,6 +278,11 @@ function archimedes_collect() {
   $owl->createField('field_drupal_theme', $themes)
       ->invokeFacet();
 
+  $drupal_root = archimedes_find_root();
+  if(!empty($drupal_root))  {
+    $owl->createField('field_directory_hash', archimedes_md5($drupal_root));
+  }
+
   // Allow other modules to add data via hook_archimedes.
   drupal_alter('archimedes', $owl);
 
@@ -298,7 +339,7 @@ function archimedes_admin() {
     '#default_value' => variable_get('archimedes_cron_update', 1),
     '#description' => t('Set Archimedes minimum cron update period.'),
   );
-  
+
   $form['archimedes_cron_first'] = array(
     '#type' => 'select',
     '#title' => t('Update on first cron after hour'),
@@ -333,7 +374,7 @@ function archimedes_send($unencrypt = false, $mail = null) {
       $server_key = variable_get('archimedes_server_key','');
     }
     $site_name  = variable_get('site_name', 'unknown');
-  
+
     $owl = archimedes_collect();
     if ($server_email != '') {
       $site_name  = variable_get('site_name', 'unknown');
@@ -344,9 +385,9 @@ function archimedes_send($unencrypt = false, $mail = null) {
     } else {
       drupal_set_message('Update failed to send as the ' . l('server email address','admin/reports/archimedes/settings') . ' is not yet set.','error');
     }
-    
+
     variable_set('archimedes_cron_last',time());
-  
+
   } else {
     drupal_set_message('Cannot accurately determine servername. You should set this in settings.php. Update was not sent.','warning');
   }
