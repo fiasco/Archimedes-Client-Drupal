@@ -97,6 +97,8 @@ function archimedes_export() {
   * @param dir the directory to start hashing from (drupal root)
   *
   * @return the md5 hash of the entire directory
+  *
+  * @author Adam Bramley
   */
 function archimedes_md5($dir) {
   if (!is_dir($dir)) {
