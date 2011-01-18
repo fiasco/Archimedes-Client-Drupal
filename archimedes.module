@@ -381,7 +381,7 @@ function archimedes_send($unencrypt = false, $mail = null) {
     if ($server_email != '') {
       $site_name  = variable_get('site_name', 'unknown');
       if ($owl->sendXML('Archimedes Server <' . $server_email . '>', $site_name, $server_key))
-        drupal_set_message('Update sent successfully via email to '  . $server_email . '. This many take some time to become visible on the server.');
+        drupal_set_message('Update sent successfully via email to '  . $server_email . '. This may take some time to become visible on the server.');
       else
         drupal_set_message('Update failed to send for an unknown reason.','error');
     } else {
