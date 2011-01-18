@@ -1,0 +1,6 @@
+= Installation =
+You'll need the php archimedes library to use this module that can be found at
+https://github.com/fiasco/Archimedes-Library. Click on the Downloads button and
+select a compression format to download. Unpack the file and copy the
+archimedes.class.php file from the php directory into the root directory of the
+archimedes module.
