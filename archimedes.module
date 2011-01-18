@@ -332,6 +332,13 @@ function archimedes_admin() {
     '#description' => t('Set Archimedes minimum cron update period.'),
   );
 
+  $form['archimedes_cron_first'] = array(
+    '#type' => 'select',
+    '#title' => t('Update on first cron after hour'),
+    '#options' => range(0, 23),
+    '#description' => t('Set the hour at which Archimedes collects and sends its data. This should ideally be a period with minimal traffic.'),
+  );
+
   return system_settings_form($form);
 }
 
