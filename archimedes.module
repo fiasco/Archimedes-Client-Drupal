@@ -67,15 +67,14 @@ function archimedes_out() {
     array(t('Node Count'),(string) $owl->getField('field_drupal_nodes')),
     array(t('Directory Hash'), (string) $owl->getFIeld('field_directory_hash')),
   );
-
   drupal_alter('archimedes_rows',$rows,$owl);
-  $table = theme('table', $header, $rows);
+  $table = theme('table', array('header' => $header, 'rows' => $rows));
 
   $header = array('Modules','Version','Description');
-  $modules = theme('table',$header,$owl->getField('field_drupal_mod')->toArray());
+  $modules = theme('table', array('header' => $header, 'rows' => $owl->getField('field_drupal_mod')->toArray()));
 
   $header = array('Themes','Version','Description');
-  $themes = theme('table',$header,$owl->getField('field_drupal_theme')->toArray());
+  $themes = theme('table', array('header' => $header, 'rows' => $owl->getField('field_drupal_theme')->toArray()));
 
   $output = '<p>' . t('This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.'). '</p>';
   $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
@@ -141,7 +140,7 @@ function archimedes_find_root() {
 }
 
 function archimedes_collect() {
-  global $db_url, $db_type, $base_url;
+  global $databases,  $base_url;
 
   $root = archimedes_find_root();
 
@@ -177,14 +176,16 @@ function archimedes_collect() {
   $owl->createField('field_webroot', 'file://' . $root);
 
   $urls = array();
-  if (!is_array($db_url)) {
-    $urls[] = $db_url;
+  if (!is_array($databases['default'])) {
+    $urls[] = $databases['default'];
   } else {
-    $urls = $db_url;
+    $urls = $databases['default'];
   }
   $values = array();
   foreach($urls as $url) {
-    $db = parse_url($url);
+    //format into url like drupal 6
+    $db_url = $url['driver'] . '://' . $url['username'] . ':' . $url['password'] . '@' . $url['host'] . '/' . $url['database'];
+    $db = parse_url($db_url);
     $dbName = substr($db['path'],1);
     $dbhost = ($db['host'] == 'localhost' || $db['host'] == '127.0.0.1') ? $hostname : $db['host'];
     $values[] = archimedes_value($dbhost,'nodereference')->addNode(array('title' => $dbhost, 'type' => 'host'));
@@ -196,48 +197,49 @@ function archimedes_collect() {
 
   $user = array(
     'type' => 'mail',
-    'mailto' => 'mailto:' . db_result(db_query("SELECT u.mail FROM {users} u WHERE uid = 1 LIMIT 1")),
+    'mailto' => 'mailto:' . db_query("SELECT u.mail FROM {users} u WHERE uid = 1 LIMIT 1")->fetchField(),
   );
   $value = archimedes_value($user['mailto'],'userreference')
             ->addUser($user);
   $owl->createField('field_users', array($value))
       ->invokeFacet();
 
+  $db_type = $databases['default']['default']['driver'];
   switch ($db_type) {
     case 'pgsql':
-      $owl->createField('field_db_size', db_result(db_query("SELECT pg_database_size('" . $dbName . "')")));
+      $owl->createField('field_db_size', db_query("SELECT pg_database_size('" . $dbName . "')")->fetchField());
       break;
     case 'mysql':
     case 'mysqli':
-      $rs = db_query("SHOW TABLE STATUS");
+      $rs = db_query('SHOW TABLE STATUS');
       $size = 0;
-      while ($row = db_fetch_object($rs)) {
-        $size += ($row->Data_length + $row->Index_length);
+      while ($row = $rs->fetchObject()) {
+        $size += ($row->data_length + $row->index_length);
       }
       $owl->createField('field_db_size', $size);
     break;
   }
-  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path() . file_directory_path()));
+  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path() . file_default_scheme()));
   $owl->createField('field_sitedata', $dataSize[0]);
 
   $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path()));
   $owl->createField('field_sitesize', $rootSize[0] - $dataSize[0]);
 
-  $owl->createField('field_num_users', db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1); // subtract one for public user
+  $owl->createField('field_num_users', db_query("SELECT COUNT(uid) FROM {users}")->fetchField()-1); // subtract one for public user
 
-  $owl->createField('field_drupal_nodes', db_result(db_query("SELECT COUNT(nid) FROM {node}")));
+  $owl->createField('field_drupal_nodes', db_query("SELECT COUNT(nid) FROM {node}")->fetchField());
 
   $modules = $themes = array();
   foreach (module_list() as $module) {
     $info = drupal_parse_info_file(drupal_get_path('module', $module) . '/' . $module . '.info');
     $node = array(
-      'title'   => $info['name'],
-      'body'    => $info['description'],
+      'title'   => (isset($info['name']) ? $info['name'] : ''),
+      'body'    => (isset($info['description']) ? $info['description'] : ''),
       'field_name' => $module,
-      'field_dru_pkg' => $info['package'],
-      'field_dru_proj' => $info['project'],
-      'field_mod_version' => $info['version'],
-      'field_mod_url' => $info['project status url'],
+      'field_dru_pkg' => (isset($info['package']) ? $info['package'] : ''),
+      'field_dru_proj' => (isset($info['project']) ? $info['project'] : ''),
+      'field_mod_version' => (isset($info['version']) ? $info['version'] : ''),
+      'field_mod_url' => (isset($info['project status url']) ? $info['project status url'] : ''),
       'type'    => 'drupal_module',
     );
     if (!isset($node['field_dru_proj']) && isset($node['field_dru_pkg']) && (strpos($node['field_dru_pkg'], 'Core -') !== FALSE)) {
@@ -253,15 +255,15 @@ function archimedes_collect() {
 
 
   $result = db_query("SELECT name FROM {system} WHERE status = 1 AND type = 'theme'");
-  while ($theme = db_result($result)) {
+  while ($theme = $result->fetchField()) {
     $info = drupal_parse_info_file(drupal_get_path('theme', $theme) . '/' . $theme . '.info');
     $node = array(
-      'title' => $info['name'],
-      'body'  => $info['description'],
+      'title'   => (isset($info['name']) ? $info['name'] : ''),
+      'body'    => (isset($info['description']) ? $info['description'] : ''),
       'field_name' => $theme,
-      'field_mod_version' => $info['version'],
-      'field_dru_proj' => $info['project'],
-      'field_mod_url' => $info['project status url'],
+      'field_mod_version' => (isset($info['version']) ? $info['version'] : ''),
+      'field_dru_proj' => (isset($info['project']) ? $info['project'] : ''),
+      'field_mod_url' => (isset($info['project status url']) ? $info['project status url'] : ''),
       'type'  => 'drupal_theme',
     );
     if (!isset($node['field_dru_proj']) && in_array($theme, array('bluemarine', 'chameleon', 'garland', 'marvin', 'minnelli', 'pushbutton'))) {
