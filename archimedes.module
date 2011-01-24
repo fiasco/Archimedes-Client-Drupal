@@ -237,7 +237,7 @@ function archimedes_collect() {
       'body'    => (isset($info['description']) ? $info['description'] : ''),
       'field_name' => $module,
       'field_dru_pkg' => (isset($info['package']) ? $info['package'] : ''),
-      'field_dru_proj' => (isset($info['project']) ? $info['project'] : ''),
+      'field_dru_proj' => (isset($info['project']) ? $info['project'] : 'drupal'),
       'field_mod_version' => (isset($info['version']) ? $info['version'] : ''),
       'field_mod_url' => (isset($info['project status url']) ? $info['project status url'] : ''),
       'type'    => 'drupal_module',
@@ -262,7 +262,7 @@ function archimedes_collect() {
       'body'    => (isset($info['description']) ? $info['description'] : ''),
       'field_name' => $theme,
       'field_mod_version' => (isset($info['version']) ? $info['version'] : ''),
-      'field_dru_proj' => (isset($info['project']) ? $info['project'] : ''),
+      'field_dru_proj' => (isset($info['project']) ? $info['project'] : 'drupal'),
       'field_mod_url' => (isset($info['project status url']) ? $info['project status url'] : ''),
       'type'  => 'drupal_theme',
     );
