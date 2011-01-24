@@ -219,7 +219,7 @@ function archimedes_collect() {
       $owl->createField('field_db_size', $size);
     break;
   }
-  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path() . file_default_scheme()));
+  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . drupal_realpath('public://')));
   $owl->createField('field_sitedata', $dataSize[0]);
 
   $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path()));
