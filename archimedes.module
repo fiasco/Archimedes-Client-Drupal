@@ -246,8 +246,9 @@ function archimedes_collect() {
       ->invokeFacet();
 
   $drupal_root = archimedes_find_root();
+  $ignore = array('#(\w*/)*sites/\w*/files#');
   if(!empty($drupal_root))  {
-    $owl->createField('field_directory_hash', archimedes_md5($drupal_root));
+    $owl->createField('field_directory_hash', archimedes_directory_hash($drupal_root, $ignore));
   }
 
   // Allow other modules to add data via hook_archimedes.
