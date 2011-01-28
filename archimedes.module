@@ -269,8 +269,10 @@ function archimedes_collect() {
 
   $drupal_root = substr(dirname(__FILE__), 0, strpos(dirname(__FILE__), drupal_get_path('module', 'archimedes')));
   $ignore = array('#(\w*/)*sites/\w*/files#');
+  $environment = variable_get('archimedes_site_environment', '');
+  $dir_hash = ($environment != 'development' ? archimedes_directory_hash($drupal_root, $ignore) : 'Directory Hash only used in stable sites (UAT, Staging, Production).');
   if(!empty($drupal_root))  {
-    $owl->createField('field_directory_hash', archimedes_directory_hash($drupal_root, $ignore));
+    $owl->createField('field_directory_hash', $dir_hash);
   }
 
   // Allow other modules to add data via hook_archimedes_data.
@@ -338,6 +340,19 @@ function archimedes_admin() {
     '#title' => t('Update on first cron after hour'),
     '#options' => range(0, 23),
     '#description' => t('Set the hour at which Archimedes collects and sends its data. This should ideally be a period with minimal traffic.'),
+  );
+
+  $form['archimedes_site_environment'] = array(
+    '#type' => 'select',
+    '#title' => t('Site Environment Type'),
+    '#options' => array(
+      'development' => 'Development',
+      'staging' => 'Staging',
+      'uat' =>'UAT',
+      'production' => 'Production'
+    ),
+    '#default_value' => variable_get('archimedes_site_environment', ''),
+    '#description' => t('Select the environment the site is running on.'),
   );
 
   return system_settings_form($form);
