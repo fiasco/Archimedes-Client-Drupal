@@ -247,11 +247,11 @@ function archimedes_collect() {
 
   $drupal_root = archimedes_find_root();
   $ignore = array('#(\w*/)*sites/\w*/files#');
-  $environment = variable_get('archimedes_site_environment', 'Development');
-  if(!empty($drupal_root) && $environment == 'Production')  {
-    $owl->createField('field_directory_hash', archimedes_directory_hash($drupal_root, $ignore));
+  $environment = variable_get('archimedes_site_environment', '');
+  $dir_hash = ($environment != 'development' ? archimedes_directory_hash($drupal_root, $ignore) : 'Directory Hash only used in stable sites (UAT, Staging, Production).');
+  if(!empty($drupal_root))  {
+    $owl->createField('field_directory_hash', $dir_hash);
   }
-
   // Allow other modules to add data via hook_archimedes.
   drupal_alter('archimedes', $owl);
 
@@ -319,7 +319,13 @@ function archimedes_admin() {
   $form['archimedes_site_environment'] = array(
     '#type' => 'select',
     '#title' => t('Site Environment Type'),
-    '#options' => array('Development', 'Staging', 'UAT', 'Production'),
+    '#options' => array(
+      'development' => 'Development',
+      'staging' => 'Staging',
+      'uat' =>'UAT',
+      'production' => 'Production'
+    ),
+    '#default_value' => variable_get('archimedes_site_environment', ''),
     '#description' => t('Select the environment the site is running on.'),
   );
 
