@@ -247,7 +247,8 @@ function archimedes_collect() {
 
   $drupal_root = archimedes_find_root();
   $ignore = array('#(\w*/)*sites/\w*/files#');
-  if(!empty($drupal_root))  {
+  $environment = variable_get('archimedes_site_environment', 'Development');
+  if(!empty($drupal_root) && $environment == 'Production')  {
     $owl->createField('field_directory_hash', archimedes_directory_hash($drupal_root, $ignore));
   }
 
@@ -313,6 +314,13 @@ function archimedes_admin() {
     '#title' => t('Update on first cron after hour'),
     '#options' => range(0, 23),
     '#description' => t('Set the hour at which Archimedes collects and sends its data. This should ideally be a period with minimal traffic.'),
+  );
+
+  $form['archimedes_site_environment'] = array(
+    '#type' => 'select',
+    '#title' => t('Site Environment Type'),
+    '#options' => array('Development', 'Staging', 'UAT', 'Production'),
+    '#description' => t('Select the environment the site is running on.'),
   );
 
   return system_settings_form($form);
