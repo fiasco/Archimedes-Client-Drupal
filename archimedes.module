@@ -199,10 +199,10 @@ function archimedes_collect() {
       'title'   => $info['name'],
       'body'    => $info['description'],
       'field_name' => $module,
-      'field_dru_pkg' => $info['package'],
-      'field_dru_proj' => $info['project'],
+      'field_dru_pkg' => (isset($info['package']) ? $info['package'] : ''),
+      'field_dru_proj' => (isset($info['project']) ? $info['project'] : ''),
       'field_mod_version' => $info['version'],
-      'field_mod_url' => $info['project status url'],
+      'field_mod_url' => (isset($info['project status url']) ? $info['project status url'] : ''),
       'type'    => 'drupal_module',
     );
     if (!isset($node['field_dru_proj']) && isset($node['field_dru_pkg']) && (strpos($node['field_dru_pkg'], 'Core -') !== FALSE)) {
@@ -225,8 +225,8 @@ function archimedes_collect() {
       'body'  => $info['description'],
       'field_name' => $theme,
       'field_mod_version' => $info['version'],
-      'field_dru_proj' => $info['project'],
-      'field_mod_url' => $info['project status url'],
+      'field_dru_proj' => (isset($info['project']) ? $info['project'] : ''),
+      'field_mod_url' => (isset($info['project status url']) ? $info['project status url'] : ''),
       'type'  => 'drupal_theme',
     );
     if (!isset($node['field_dru_proj']) && in_array($theme, array('bluemarine', 'chameleon', 'garland', 'marvin', 'minnelli', 'pushbutton'))) {
