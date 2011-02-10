@@ -14,13 +14,6 @@ function archimedes_menu() {
     'type' => MENU_NORMAL_ITEM,
   );
   $items[] = array(
-    'path' => 'admin/logs/archimedes/update',
-    'title' => t('Archimedes'),
-    'access' => user_access('access administration pages'),
-    'callback' => 'archimedes_send_force',
-    'type' => MENU_CALLBACK,
-  );
-  $items[] = array(
     'path' => 'admin/logs/archimedes/data',
     'title' => t('Data'),
     'type' => MENU_DEFAULT_LOCAL_TASK,
@@ -32,20 +25,28 @@ function archimedes_menu() {
     'callback arguments' => 'archimedes_admin',
     'access' => user_access('access administration pages'),
     'type' => MENU_LOCAL_TASK,
-   );
-   $items[] = array(
+  );
+  $items[] = array(
     'path' => 'admin/logs/archimedes/export',
     'title' => t('XML Export'),
     'callback' => 'archimedes_export',
     'access' => user_access('access administration pages'),
     'type' => MENU_LOCAL_TASK,
-   );
-   $items[] = array(
+  );
+  $items[] = array(
+    'path' => 'admin/logs/archimedes/update',
+    'title' => t('Force Update'),
+    'access' => user_access('access administration pages'),
+    'callback' => 'archimedes_send_force',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+  );
+  $items[] = array(
     'path' => 'archimedes/login',
     'callback' => 'archimedes_request_admin_access',
     'type' => MENU_CALLBACK,
     'access' => TRUE,
-   );
+  );
   return $items;
 } // archimedes_menu()
 
@@ -83,7 +84,6 @@ function archimedes_out() {
   $themes = theme('table',$header,$owl->getField('field_drupal_theme')->toArray());
 
   $output = '<p>This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.</p>';
-  $output .= '<p>' . l('Force server update','admin/logs/archimedes/update') . ' | ' . l('View data on server', variable_get('archimedes_server_location','')) . '</p>';
   return $output . $table . $modules . $themes;
 } // archimedes_out()
 
@@ -95,41 +95,6 @@ function archimedes_export() {
   return '<pre>' . htmlentities($owl->toXML()) . '</pre>';
 
 } // archimedes_export()
-
-/**
-  * Recursively get the md5 hash of a directory. Ignores the files directory.
-  *
-  * @param dir the directory to start hashing from (drupal root)
-  *
-  * @return the md5 hash of the entire directory
-  *
-  * @author Adam Bramley
-  */
-function archimedes_md5($dir) {
-  if (!is_dir($dir)) {
-    return false;
-  }
-
-  $filemd5s = array();
-  $d = dir($dir);
-
-  while (($entry = $d->read()) !== false)  {
-    if ($entry != '.' && $entry != '..')  {
-      $pattern = '#(\w*/)*sites/\w*/files#';
-      if (is_dir($dir . '/' . $entry) && !preg_match($pattern, $dir . '/' . $entry))  {
-        $filemd5s[] = archimedes_md5($dir . '/' . $entry);
-      }
-      else  {
-        $filemd5s[] = md5_file($dir . '/' . $entry);
-      }
-    }
-  }
-
-  $d->close();
-  //sort the md5s before concat so ensure order of files doesn't affect it.
-  asort($filemd5s);
-  return md5(implode('', $filemd5s));
-}
 
 /**
   * @param $server_name The name of the server.
@@ -355,7 +320,28 @@ function archimedes_admin() {
     '#description' => t('Select the environment the site is running on.'),
   );
 
+  $form['archimedes_allow_administer'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Allow "Administer Site" functionality from the server'),
+    '#default_value' => variable_get('archimedes_allow_administer', FALSE),
+    '#description' => t('Checking this allows authenticated users to gain admin access to this site from the server.'),
+  );
+
   return system_settings_form($form);
+}
+
+/**
+  * Implementation of hook_validate()
+  *
+  * Validate the admin settings form when submitted
+  *
+  * @author Adam Bramley <adam@catalyst.net.nz>
+  */
+function archimedes_admin_validate($node) {
+  $key = $node['archimedes_server_email']['#post']['archimedes_server_key'];
+  if (!empty($key) && !openssl_pkey_get_public($key)) {
+    form_set_error('archimedes_server_key', t('The public key you provided is invalid'));
+  }
 }
 
 /**
@@ -441,6 +427,11 @@ function archimedes_request_admin_access() {
   if ($user->uid == 1) {
     drupal_goto('<front>');
   }
+
+  if (!variable_get('archimedes_allow_administer', FALSE)) {
+    drupal_access_denied();
+  }
+
   $keys = module_invoke_all('archimedes_id');
   sort($keys);
   $hash = md5(implode('', $keys));
@@ -466,4 +457,4 @@ function archimedes_request_admin_access() {
 
   $request->validateRemoteUser();
   return drupal_access_denied();
-}
+
