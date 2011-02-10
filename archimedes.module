@@ -30,7 +30,7 @@ function archimedes_menu() {
     'type' => MENU_LOCAL_TASK,
   );
   $items['admin/reports/archimedes/update'] = array(
-    'title' => t('Archimedes'),
+    'title' => t('Force Update'),
     'access arguments' => array('access administration pages'),
     'page callback' => 'archimedes_send_force',
     'type' => MENU_LOCAL_TASK,
@@ -343,7 +343,7 @@ function archimedes_admin() {
   * @author Adam Bramley <adam@catalyst.net.nz>
   */
 function archimedes_admin_validate($node) {
-  $key = $node['archimedes_server_email']['#post']['archimedes_server_key'];
+  $key = $node['archimedes_server_key']['#value'];
   if (!empty($key) && !openssl_pkey_get_public($key)) {
     form_set_error('archimedes_server_key', t('The public key you provided is invalid'));
   }
