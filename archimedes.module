@@ -336,6 +336,20 @@ function archimedes_admin() {
 }
 
 /**
+  * Implementation of hook_validate()
+  *
+  * Validate the admin settings form when submitted
+  *
+  * @author Adam Bramley <adam@catalyst.net.nz>
+  */
+function archimedes_admin_validate($node) {
+  $key = $node['archimedes_server_email']['#post']['archimedes_server_key'];
+  if (!empty($key) && !openssl_pkey_get_public($key)) {
+    form_set_error('archimedes_server_key', t('The public key you provided is invalid'));
+  }
+}
+
+/**
   * Send a report to the Archimedes server via email.
   *
   * Doesn't use Drupal's messaging system because the communication
