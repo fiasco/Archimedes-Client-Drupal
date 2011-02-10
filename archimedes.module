@@ -12,12 +12,7 @@ function archimedes_menu() {
     'description' => t('Administer Archimedes'),
     'type' => MENU_NORMAL_ITEM,
   );
-  $items['admin/reports/archimedes/update'] = array(
-    'title' => t('Archimedes'),
-    'access arguments' => array('access administration pages'),
-    'page callback' => 'archimedes_send_force',
-    'type' => MENU_CALLBACK,
-  );
+
   $items['admin/reports/archimedes/data'] = array(
     'title' => t('Data'),
     'type' => MENU_DEFAULT_LOCAL_TASK,
@@ -28,20 +23,27 @@ function archimedes_menu() {
     'page arguments' => array('archimedes_admin'),
     'access arguments' => array('access administration pages'),
     'type' => MENU_LOCAL_TASK,
-   );
-   $items['admin/reports/archimedes/export'] = array(
+  );
+  $items['admin/reports/archimedes/export'] = array(
     'title' => t('XML Export'),
     'page callback' => 'archimedes_export',
     'access arguments' => array('access administration pages'),
     'type' => MENU_LOCAL_TASK,
-   );
-   $items['archimedes/login'] = array(
+  );
+  $items['admin/reports/archimedes/update'] = array(
+    'title' => t('Force Update'),
+    'access arguments' => array('access administration pages'),
+    'page callback' => 'archimedes_send_force',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+  );
+  $items['archimedes/login'] = array(
     'page callback' => 'archimedes_request_admin_access',
     'type' => MENU_CALLBACK,
     // Access to callback is very open.
     'access arguments' => array('string'),
     'access callback' => 'is_string',
-   );
+  );
   return $items;
 } // archimedes_menu()
 
@@ -80,7 +82,6 @@ function archimedes_out() {
   $themes = theme('table',$header,$owl->getField('field_drupal_theme')->toArray());
 
   $output = '<p>' . t('This page shows the current output from of Archimedes Client for this website. It will not necessarily match what is known by the server.'). '</p>';
-  $output .= '<p>' . l('Force server update','admin/reports/archimedes/update') . '</p>';
   return $output . $table . $modules . $themes;
 } // archimedes_out()
 
