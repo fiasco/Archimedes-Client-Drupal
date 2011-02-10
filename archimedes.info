@@ -5,4 +5,4 @@ core = 5.x
 
 package = "Archimedes"
 
-version = "5.x-dev"
+version = "5.x-1.0"
