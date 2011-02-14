@@ -3,50 +3,52 @@
 /**
 * Implementation of hook_menu().
 */
-function archimedes_menu() {
+function archimedes_menu($may_cache) {
   $items = array();
-  $items[] = array(
-    'path' => 'admin/logs/archimedes',
-    'title' => t('Archimedes'),
-    'access' => user_access('access administration pages'),
-    'callback' => 'archimedes_out',
-    'description' => t('Administer Archimedes'),
-    'type' => MENU_NORMAL_ITEM,
-  );
-  $items[] = array(
-    'path' => 'admin/logs/archimedes/data',
-    'title' => t('Data'),
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-  );
-  $items[] = array(
-    'path' =>'admin/logs/archimedes/settings',
-    'title' => t('Settings'),
-    'callback' => 'drupal_get_form',
-    'callback arguments' => 'archimedes_admin',
-    'access' => user_access('access administration pages'),
-    'type' => MENU_LOCAL_TASK,
-  );
-  $items[] = array(
-    'path' => 'admin/logs/archimedes/export',
-    'title' => t('XML Export'),
-    'callback' => 'archimedes_export',
-    'access' => user_access('access administration pages'),
-    'type' => MENU_LOCAL_TASK,
-  );
-  $items[] = array(
-    'path' => 'admin/logs/archimedes/update',
-    'title' => t('Force Update'),
-    'access' => user_access('access administration pages'),
-    'callback' => 'archimedes_send_force',
-    'type' => MENU_LOCAL_TASK,
-    'weight' => 1,
-  );
-  $items[] = array(
-    'path' => 'archimedes/login',
-    'callback' => 'archimedes_request_admin_access',
-    'type' => MENU_CALLBACK,
-    'access' => TRUE,
-  );
+  if ($may_cache) {
+    $items[] = array(
+      'path' => 'admin/logs/archimedes',
+      'title' => t('Archimedes'),
+      'access' => user_access('access administration pages'),
+      'callback' => 'archimedes_out',
+      'description' => t('Administer Archimedes'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+    $items[] = array(
+      'path' => 'admin/logs/archimedes/data',
+      'title' => t('Data'),
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+    );
+    $items[] = array(
+      'path' =>'admin/logs/archimedes/settings',
+      'title' => t('Settings'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => 'archimedes_admin',
+      'access' => user_access('access administration pages'),
+      'type' => MENU_LOCAL_TASK,
+    );
+    $items[] = array(
+      'path' => 'admin/logs/archimedes/export',
+      'title' => t('XML Export'),
+      'callback' => 'archimedes_export',
+      'access' => user_access('access administration pages'),
+      'type' => MENU_LOCAL_TASK,
+    );
+    $items[] = array(
+      'path' => 'admin/logs/archimedes/update',
+      'title' => t('Force Update'),
+      'access' => user_access('access administration pages'),
+      'callback' => 'archimedes_send_report_force',
+      'type' => MENU_LOCAL_TASK,
+      'weight' => 1,
+    );
+    $items[] = array(
+      'path' => 'archimedes/login',
+      'callback' => 'archimedes_request_admin_access',
+      'type' => MENU_CALLBACK,
+      'access' => TRUE,
+    );
+  }
   return $items;
 } // archimedes_menu()
 
@@ -304,6 +306,7 @@ function archimedes_admin() {
     '#type' => 'select',
     '#title' => t('Update on first cron after hour'),
     '#options' => range(0, 23),
+    '#default_value' => variable_get('archimedes_cron_first', 0),
     '#description' => t('Set the hour at which Archimedes collects and sends its data. This should ideally be a period with minimal traffic.'),
   );
 
@@ -338,10 +341,12 @@ function archimedes_admin() {
   *
   * @author Adam Bramley <adam@catalyst.net.nz>
   */
-function archimedes_admin_validate($node) {
-  $key = $node['archimedes_server_email']['#post']['archimedes_server_key'];
+function archimedes_admin_validate($node, &$form) {
+  $key = $form['archimedes_server_key'];
   if (!empty($key) && !openssl_pkey_get_public($key)) {
-    form_set_error('archimedes_server_key', t('The public key you provided is invalid'));
+    //for some reason form_set_error causes pages of postgres errors, so this is the next best thing
+    drupal_set_message(t('The public key you provided is invalid and data will not be correctly encrypted'), 'error');
+    drupal_goto('admin/logs/archimedes/settings');
   }
 }
 
@@ -354,7 +359,7 @@ function archimedes_admin_validate($node) {
   * @param $server_name name of the server
   * @param $protocol protocol being used (either http or https)
   */
-function archimedes_send() {
+function archimedes_send_report() {
   global $base_url;
   if($base_url != 'http://default'){
     include_once dirname(__FILE__) . "/archimedes.class.php";
@@ -382,8 +387,8 @@ function archimedes_send() {
 /**
   * Drupal UI callback to force Archimedes client to send a report.
   */
-function archimedes_send_force() {
-  archimedes_send();
+function archimedes_send_report_force() {
+  archimedes_send_report();
   drupal_goto('admin/logs/archimedes');
 }
 
@@ -394,7 +399,7 @@ function archimedes_cron() {
   $last_day = strtotime(date('Ymd',variable_get('archimedes_cron_last',0)));
   $curr_day = strtotime(date('Ymd'));
   if (time() > $curr_day + variable_get('archimedes_cron_first',1)*3600 && time() > $last_day + variable_get('archimedes_cron_update',1)*86400) {
-    archimedes_send();
+    archimedes_send_report();
   }
 }
 
