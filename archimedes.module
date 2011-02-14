@@ -69,6 +69,7 @@ function archimedes_out() {
     array('User Count',(string) $owl->getField('field_num_users')),
     array('Node Count',(string) $owl->getField('field_drupal_nodes')),
     array('Directory Hash', (string) $owl->getFIeld('field_directory_hash')),
+    array('Site Environment', (string) $owl->getField('field_site_env')),
   );
 
   // Allow other modules to add data via hook_archimedes_data.
@@ -233,12 +234,17 @@ function archimedes_collect() {
       ->invokeFacet();
 
   $drupal_root = substr(dirname(__FILE__), 0, strpos(dirname(__FILE__), drupal_get_path('module', 'archimedes')));
+
+  //array of regex for files to be ignored
   $ignore = array('#(\w*/)*sites/\w*/files#');
+
   $environment = variable_get('archimedes_site_environment', '');
-  $dir_hash = ($environment != 'development' ? archimedes_directory_hash($drupal_root, $ignore) : 'Directory Hash only used in stable sites (UAT, Staging, Production).');
+  $dir_hash = ($environment != 'Development' ? archimedes_directory_hash($drupal_root, $ignore) : 'Directory Hash only used in stable sites (UAT, Staging, Production).');
   if(!empty($drupal_root))  {
     $owl->createField('field_directory_hash', $dir_hash);
   }
+
+  $owl->createField('field_site_env', $environment);
 
   // Allow other modules to add data via hook_archimedes_data.
   foreach (module_implements('archimedes_data') as $module) {
@@ -253,9 +259,10 @@ function archimedes_collect() {
  */
 function archimedes_archimedes_id() {
   global $db_url, $base_url;
+  $environment = variable_get('archimedes_site_environment', '');
   $url = (is_array($db_url) ? implode('', $db_url) : $db_url);
   $urls = parse_url($base_url);
-  return $urls['host'] . $url;
+  return $urls['host'] . $url . $environment;
 }
 
 
@@ -311,13 +318,14 @@ function archimedes_admin() {
     '#type' => 'select',
     '#title' => t('Site Environment Type'),
     '#options' => array(
-      'development' => 'Development',
-      'staging' => 'Staging',
-      'uat' =>'UAT',
-      'production' => 'Production'
+      'Development' => 'Development',
+      'Staging' => 'Staging',
+      'UAT' =>'UAT',
+      'Production' => 'Production',
+      'DR' => 'DR',
     ),
-    '#default_value' => variable_get('archimedes_site_environment', ''),
-    '#description' => t('Select the environment the site is running on.'),
+    '#default_value' => variable_get('archimedes_site_environment', 'Development'),
+    '#description' => t('Select the environment the site is running on. Note: this will likely be overwritten by any settings in settings.php'),
   );
 
   $form['archimedes_allow_administer'] = array(
