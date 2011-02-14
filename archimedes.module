@@ -316,6 +316,7 @@ function archimedes_admin() {
     '#type' => 'select',
     '#title' => t('Update on first cron after hour'),
     '#options' => range(0, 23),
+    '#default_value' => variable_get('archimedes_cron_first', 0),
     '#description' => t('Set the hour at which Archimedes collects and sends its data. This should ideally be a period with minimal traffic.'),
   );
 
