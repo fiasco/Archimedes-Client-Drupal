@@ -465,4 +465,4 @@ function archimedes_request_admin_access() {
 
   $request->validateRemoteUser();
   return drupal_access_denied();
-
+}
