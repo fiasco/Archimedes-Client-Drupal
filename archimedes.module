@@ -272,9 +272,10 @@ function archimedes_collect() {
  */
 function archimedes_archimedes_id() {
   global $db_url, $base_url;
+  $environment = variable_get('archimedes_site_environment', '');
   $url = (is_array($db_url) ? implode('', $db_url) : $db_url);
   $urls = parse_url($base_url);
-  return $urls['host'] . $url;
+  return $urls['host'] . $url . $environment;
 }
 
 
