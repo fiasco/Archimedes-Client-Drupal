@@ -276,13 +276,6 @@ function archimedes_admin() {
     '#description' => t('Set Archimedes server email address.'),
   );
 
-  $form['archimedes_server_location'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Server web address'),
-    '#default_value' => variable_get('archimedes_server_location', 'http://server.com'),
-    '#description' => t('Set Archimedes server web address.'),
-  );
-
   $form['archimedes_server_key'] = array(
     '#type' => 'textarea',
     '#title' => t('Server Public Key'),
