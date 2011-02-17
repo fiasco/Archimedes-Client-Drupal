@@ -454,7 +454,7 @@ function archimedes_request_admin_access() {
   }
 
   if (!variable_get('archimedes_allow_administer', FALSE)) {
-    drupal_access_denied();
+    return drupal_access_denied();
   }
 
   $keys = module_invoke_all('archimedes_id');
