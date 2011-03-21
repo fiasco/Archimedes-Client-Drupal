@@ -70,7 +70,7 @@ function archimedes_out() {
     array(t('User Count'),(string) $owl->getField('field_num_users')),
     array(t('Node Count'),(string) $owl->getField('field_drupal_nodes')),
     array(t('Directory Hash'), (string) $owl->getField('field_directory_hash')),
-    array(t('Site Environment'), (string) $owl->getField('field_site_env')),
+    array(t('Environment'), (string) $owl->getField('field_site_env')),
   );
 
   drupal_alter('archimedes_rows',$rows,$owl);
@@ -245,22 +245,23 @@ function archimedes_collect() {
     $themes[] = $value;
   }
 
-
   $owl->createField('field_drupal_theme', $themes)
       ->invokeFacet();
 
+  $environment = environment_current(TRUE, 'label');
+  $owl->createField('field_site_env', $environment);
+
   $drupal_root = archimedes_find_root();
-
-  //array of regex for files to be ignored
   $ignore = array('#(\w*/)*sites/\w*/files#');
-
-  $environment = variable_get('archimedes_site_environment', '');
+  
+  // The point of the directory hash is to record the state of the deployed code base.
+  // If the code base changes, then the site could have been redeployed or hacked! However,
+  // in development scenarios, the code changes very frequently so we don't care to change
+  // it.
   $dir_hash = ($environment != 'Development' ? archimedes_directory_hash($drupal_root, $ignore) : 'Directory Hash only used in stable sites (UAT, Staging, Production).');
   if(!empty($drupal_root))  {
     $owl->createField('field_directory_hash', $dir_hash);
   }
-
-  $owl->createField('field_site_env', $environment);
 
   // Allow other modules to add data via hook_archimedes.
   drupal_alter('archimedes', $owl);

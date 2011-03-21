@@ -1,8 +1,6 @@
-; $Id$
 name = Archimedes Client
 description = Client module for the Archimedes Status Project
 core = 6.x
-
 package = "Archimedes"
-
 version = "6.x-1.0"
+dependencies[] = environment
