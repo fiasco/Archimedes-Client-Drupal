@@ -311,7 +311,7 @@ function archimedes_collect() {
  */
 function archimedes_archimedes_id() {
   global $db_url, $base_url;
-  $environment = variable_get('archimedes_site_environment', '');
+  $environment = environment_current();
   $url = (is_array($db_url) ? implode('', $db_url) : $db_url);
   $urls = parse_url($base_url);
   return $urls['host'] . $url . $environment;
@@ -376,18 +376,18 @@ function archimedes_admin() {
     '#description' => t('Set the hour at which Archimedes collects and sends its data. This should ideally be a period with minimal traffic.'),
   );
 
+  $options = array();
+  foreach (environment_load() as $key => $env) {
+    $options[$key] = $env['label'];
+  }
+
   $form['archimedes_site_environment'] = array(
     '#type' => 'select',
     '#title' => t('Site Environment Type'),
-    '#options' => array(
-      'Development' => 'Development',
-      'Staging' => 'Staging',
-      'UAT' =>'UAT',
-      'Production' => 'Production',
-      'DR' => 'DR',
-    ),
-    '#default_value' => variable_get('archimedes_site_environment', 'Development'),
-    '#description' => t('Select the environment the site is running on. Note: this will likely be overwritten by any settings in settings.php'),
+    '#options' => $options,
+    '#default_value' => environment_current(TRUE, 'label'),
+    '#description' => t('This variable is controlled by the Environment module. See !link to alter the environment.', array('!link' => l('the environment admin page', 'admin/settings/environment'))),
+    '#disabled' => TRUE,
   );
 
   $form['archimedes_allow_administer'] = array(
