@@ -271,13 +271,14 @@ function archimedes_collect() {
 
 /**
  * Implementation of hook_archimedes_id().
+ *
+ * A instance of an Archimedes report should be based
+ * on a single Drupal install which is the environment
+ * it says it is, coupled with the database credentials.
  */
 function archimedes_archimedes_id() {
-  global $db_url, $base_url;
   $environment = environment_current();
-  $url = (is_array($db_url) ? implode('', $db_url) : $db_url);
-  $urls = parse_url($base_url);
-  return $urls['host'] . $url . $environment;
+  return variable_get('archimedes_common_key', '') . $environment;
 }
 
 
