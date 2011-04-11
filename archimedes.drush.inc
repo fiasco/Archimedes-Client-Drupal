@@ -34,7 +34,7 @@ function archimedes_drush_command() {
  * Command callback. Output XML.
  */
 function drush_archimedes_arch_xml() {
-  module_load_include('php','archimedes','archimedes.class');
+  archimedes_load_library();
   $owl = archimedes_collect();
   drush_print("\n" . $owl->toXML() . "\n");
 }
