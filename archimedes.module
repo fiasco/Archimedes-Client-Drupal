@@ -46,9 +46,44 @@ function archimedes_menu() {
   return $items;
 } // archimedes_menu()
 
+/**
+ * Find and load the archimedes library.
+ */
+function archimedes_load_library() {
+  // Use the libraries module if its enabled.
+  if (module_exists('libraries')) {
+    $file = libraries_get_path('archimedes') . '/archimdes.class.php';
+    if (file_exists($file)) {
+      include_once $file;
+      return TRUE;
+    }
+  }
+  // If the file is already in the module, use that.
+  if (file_exists(dirname(__FILE__) . '/archimedes.class.php')) {
+    include_once dirname(__FILE__) . '/archimedes.class.php';
+    return TRUE;
+  }
+  global $profile;
+  $options = array(
+    'sites/all/libraries/archimedes/archimedes.class.php',
+    'profiles/' . $profile . '/libraries/archimedes/archimedes.class.php',
+    conf_path() . '/libraries/archimedes/archimedes.class.php',
+  );
+  foreach ($options as $path) {
+    if (!file_exists($path)) {
+      continue;
+    }
+    include_once $path;
+    return TRUE;
+  }
+  return FALSE;
+}
 
+/**
+ * Generate a report.
+ */
 function archimedes_out() {
-  module_load_include('php','archimedes','archimedes.class');
+  archimedes_load_library();
   $owl = archimedes_collect();
 
   $header = array('Component', 'Value');
@@ -84,7 +119,7 @@ function archimedes_out() {
 
 
 function archimedes_export() {
-  module_load_include('php','archimedes','archimedes.class');
+  archimedes_load_library();
   $owl = archimedes_collect();
 
   return '<pre>' . htmlentities($owl->toXML()) . '</pre>';
@@ -370,7 +405,7 @@ function archimedes_admin_validate($node) {
 function archimedes_send($unencrypt = false, $mail = null) {
   global $base_url;
   if($base_url != 'http://default'){ // must have accurate servername
-    module_load_include('php','archimedes','archimedes.class');
+    archimedes_load_library();
     if (isset($mail)) {
       $server_email = $mail;
     } else {
@@ -459,7 +494,7 @@ function archimedes_request_admin_access() {
   sort($keys);
   $hash = md5(implode('', $keys));
 
-  module_load_include('php', 'archimedes', 'archimedes.class');
+  archimedes_load_library();
 
   $request = new ArchimedesRemoteRequest();
 
