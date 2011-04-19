@@ -388,7 +388,7 @@ function archimedes_admin() {
     '#type' => 'select',
     '#title' => t('Site Environment Type'),
     '#options' => $options,
-    '#default_value' => environment_current(TRUE, 'label'),
+    '#default_value' => environment_current(TRUE, 'name'),
     '#description' => t('This variable is controlled by the Environment module. See !link to alter the environment.', array('!link' => l('the environment admin page', 'admin/settings/environment'))),
     '#disabled' => TRUE,
   );
