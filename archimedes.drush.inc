@@ -43,7 +43,7 @@ function drush_archimedes_arch_xml() {
  * Command callback. Send an update to configured email address.
  */
 function drush_archimedes_arch_send() {
-  archimedes_send(drush_get_option('unencrypt'), drush_get_option('mail'));
+  archimedes_send();
   $messages = drupal_set_message();
   if (isset($messages['warning'])) {
     drupal_set_message('Try using drush -l http://servername if servername cannot be determined.','warning');
