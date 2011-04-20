@@ -64,10 +64,10 @@ function archimedes_load_library() {
     include_once dirname(__FILE__) . '/archimedes.class.php';
     return TRUE;
   }
-  global $profile;
+  global $conf;
   $options = array(
     'sites/all/libraries/archimedes/archimedes.class.php',
-    'profiles/' . $profile . '/libraries/archimedes/archimedes.class.php',
+    'profiles/' . $conf['install_profile'] . '/libraries/archimedes/archimedes.class.php',
     conf_path() . '/libraries/archimedes/archimedes.class.php',
   );
   foreach ($options as $path) {
@@ -151,6 +151,8 @@ function archimedes_collect() {
     watchdog('Archimedes', "Cannot find Drupal root", array(), WATCHDOG_ERROR);
     return;
   }
+
+  archimedes_load_library();
 
   // Produce a unique value to represent this instance of Drupal.
   $keys = module_invoke_all('archimedes_id');
@@ -325,6 +327,23 @@ function archimedes_admin() {
     '#description' => t('Set Archimedes server email address.'),
   );
 
+  $form['archimedes_server_url'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Archimedes Server URL',
+    '#default_value' =>  variable_get('archimedes_server_url', FALSE),
+    '#description' => t("This is required if you wish to use a direct update method to the archimedes server apposed to using email."),
+  );
+
+  $form['archimedes_send_method'] = array(
+    '#type' => 'radios',
+    '#title' => 'Archimedes Send Method',
+    '#default_value' => variable_get('archimedes_send_method', 'postXML'),
+    '#options' => array(
+      'sendXML' => 'Email',
+      'postXML' => 'HTTP',
+    ),
+  );
+
   $form['archimedes_server_key'] = array(
     '#type' => 'textarea',
     '#title' => t('Server Public Key'),
@@ -400,41 +419,37 @@ function archimedes_admin_validate($node) {
   *
   * Doesn't use Drupal's messaging system because the communication
   * with the server is independant of Drupal.
-  *
-  * @param $server_name name of the server
-  * @param $protocol protocol being used (either http or https)
   */
-function archimedes_send($unencrypt = false, $mail = null) {
+function archimedes_send() {
   global $base_url;
-  if($base_url != 'http://default'){ // must have accurate servername
-    archimedes_load_library();
-    if (isset($mail)) {
-      $server_email = $mail;
-    } else {
-      $server_email = variable_get('archimedes_server_email','');
-    }
-    if ($unencrypt) {
-      $server_key = '';
-    } else {
-      $server_key = variable_get('archimedes_server_key','');
-    }
-    $site_name  = variable_get('site_name', 'unknown');
-
-    $owl = archimedes_collect();
-    if ($server_email != '') {
-      $site_name  = variable_get('site_name', 'unknown');
-      if ($owl->sendXML('Archimedes Server <' . $server_email . '>', $site_name, $server_key))
-        drupal_set_message('Update sent successfully via email to '  . $server_email . '. This may take some time to become visible on the server.');
-      else
-        drupal_set_message('Update failed to send for an unknown reason.','error');
-    } else {
-      drupal_set_message('Update failed to send as the ' . l('server email address','admin/reports/archimedes/settings') . ' is not yet set.','error');
-    }
-
-    variable_set('archimedes_cron_last',time());
-
-  } else {
+  if ($base_url == 'http://default'){ // must have accurate servername
     drupal_set_message('Cannot accurately determine servername. You should set this in settings.php. Update was not sent.','warning');
+    return FALSE;
+  }
+
+  archimedes_load_library();
+  $server_key = variable_get('archimedes_server_key','');
+  $site_name  = variable_get('site_name', 'unknown');
+
+  if (variable_get('archimedes_send_method', 'postXML') == 'postXML') {
+    $destination = variable_get('archimedes_server_url', FALSE);
+  }
+  else {
+    $destination = 'Archimedes Server <' . variable_get('archimedes_server_email', FALSE) . '>';
+  }
+  if (!$destination) {
+    drupal_set_message('Update failed to send as the ' . l('server email address','admin/reports/archimedes/settings') . ' is not yet set.','error');
+    return FALSE;
+  }
+
+  $owl = archimedes_collect();
+  $ekey = $owl->encrypt($server_key);
+  if (call_user_func(array($owl, variable_get('archimedes_send_method', 'postXML')), $destination)) {
+    drupal_set_message('Update sent successfully to '  . $destination. '. This may take some time to become visible on the server.');
+    variable_set('archimedes_cron_last',time());
+  }
+  else {
+    drupal_set_message('Update failed to send for an unknown reason.','error');
   }
 }
 
