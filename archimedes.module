@@ -161,6 +161,7 @@ function archimedes_collect() {
 
   $owl->createField('title', variable_get('site_name', "unknown"));
   $owl->createField('field_drupal_version', VERSION);
+  $owl->createField('field_common_hash', variable_get('archimedes_common_key', ''));
 
   if (variable_get('archimedes_description', '') != '') {
     $nid = arg(1,drupal_get_normal_path(variable_get('archimedes_description', 'node')));
