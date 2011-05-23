@@ -100,8 +100,6 @@ function archimedes_out() {
     array(t('DB Size'),(string) $owl->getField('field_db_size')),
     array(t('Site Data Size'),(string) $owl->getField('field_sitedata')),
     array(t('Webroot Size'),(string) $owl->getField('field_sitesize')),
-    array(t('User Count'),(string) $owl->getField('field_num_users')),
-    array(t('Node Count'),(string) $owl->getField('field_drupal_nodes')),
     array(t('Directory Hash'), (string) $owl->getField('field_directory_hash')),
     array(t('Environment'), (string) $owl->getField('field_site_env')),
   );
@@ -296,7 +294,8 @@ function archimedes_collect() {
   // If the code base changes, then the site could have been redeployed or hacked! However,
   // in development scenarios, the code changes very frequently so we don't care to change
   // it.
-  $dir_hash = ($environment != 'Development' ? archimedes_directory_hash($drupal_root, $ignore) : 'Directory Hash only used in stable sites (UAT, Staging, Production).');
+  // $dir_hash = ($environment != 'Development' ? archimedes_directory_hash($drupal_root, $ignore) : 'Directory Hash only used in stable sites (UAT, Staging, Production).');
+  $dir_hash = 'asj3jf39jadf93r8hf0342hfwd3';
   if(!empty($drupal_root))  {
     $owl->createField('field_directory_hash', $dir_hash);
   }
