@@ -99,8 +99,6 @@ function archimedes_out() {
     array(t('DB Size'),(string) $owl->getField('field_db_size')),
     array(t('Site Data Size'),(string) $owl->getField('field_sitedata')),
     array(t('Webroot Size'),(string) $owl->getField('field_sitesize')),
-    array(t('User Count'),(string) $owl->getField('field_num_users')),
-    array(t('Node Count'),(string) $owl->getField('field_drupal_nodes')),
     array(t('Directory Hash'), (string) $owl->getField('field_directory_hash')),
     array(t('Environment'), (string) $owl->getField('field_site_env')),
   );
@@ -169,14 +167,20 @@ function archimedes_collect() {
       ->invokeFacet();
   $owl->createField('field_webroot', 'file://' . $root);
 
-  $urls = array();
-  if (!is_array($databases['default'])) {
-    $urls[] = $databases['default'];
-  } else {
-    $urls = $databases['default'];
-  }
   $values = array();
-  foreach($urls as $url) {
+  $connections = array();
+  foreach($databases['default'] as $key => $connection) {
+    if ($key == 'slave') {
+      foreach ($connection as $slave) {
+        $connections[] = $slave;
+      }
+    }
+    else {
+      $connections[] = $connection;
+    }
+  }
+
+  foreach ($connections as $url) {
     //format into url like drupal 6
     $db_url = $url['driver'] . '://' . $url['username'] . ':' . $url['password'] . '@' . $url['host'] . '/' . $url['database'];
     $db = parse_url($db_url);
@@ -220,9 +224,9 @@ function archimedes_collect() {
   $owl->createField('field_sitesize', $rootSize[0] - $dataSize[0]);
 
   // Graphable data.
-  $users = archimedes_value(db_query("SELECT COUNT(uid) FROM {users}")->fetchObject()->count-1, 'dataset')->setTitle('Users');
-  $nodes = archimedes_value(db_query("SELECT COUNT(nid) FROM {node}")->fetchObject()->count, 'dataset')->setTitle('Nodes');
-  $revisions = archimedes_value(db_query("SELECT COUNT(nid) FROM {node_revision}")->fetchObject()->count, 'dataset')->setTitle('Revisions');
+  $users = archimedes_value(db_query("SELECT COUNT(uid) as count FROM {users}")->fetchObject()->count-1, 'dataset')->setTitle('Users');
+  $nodes = archimedes_value(db_query("SELECT COUNT(nid) as count FROM {node}")->fetchObject()->count, 'dataset')->setTitle('Nodes');
+  $revisions = archimedes_value(db_query("SELECT COUNT(nid) as count FROM {node_revision}")->fetchObject()->count, 'dataset')->setTitle('Revisions');
   $owl->createField('field_c_dataset', array($nodes, $revisions, $users));
 
   $modules = $themes = array();
