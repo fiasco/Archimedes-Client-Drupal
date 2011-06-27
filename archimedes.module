@@ -291,13 +291,13 @@ function archimedes_collect() {
   $owl->createField('field_site_env', $environment);
 
   $drupal_root = archimedes_find_root();
-  $ignore = array('#(\w*/)*sites/\w*/files#');
+  $ignore = array('#(\w*/)*sites/\w*/files#', '#.*\.(git|svn|bzr|cvs)/.*#');
   
   // The point of the directory hash is to record the state of the deployed code base.
   // If the code base changes, then the site could have been redeployed or hacked! However,
   // in development scenarios, the code changes very frequently so we don't care to change
   // it.
-  $dir_hash = ($environment != 'Development' ? archimedes_directory_hash($drupal_root, $ignore) : 'Directory Hash only used in stable sites (UAT, Staging, Production).');
+  $dir_hash = archimedes_directory_hash($drupal_root, $ignore);
   if(!empty($drupal_root))  {
     $owl->createField('field_directory_hash', $dir_hash);
   }
