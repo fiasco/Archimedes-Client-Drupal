@@ -229,9 +229,11 @@ function archimedes_collect() {
   $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path()));
   $owl->createField('field_sitesize', $rootSize[0] - $dataSize[0]);
 
-  $owl->createField('field_num_users', db_query("SELECT COUNT(uid) FROM {users}")->fetchField()-1); // subtract one for public user
-
-  $owl->createField('field_drupal_nodes', db_query("SELECT COUNT(nid) FROM {node}")->fetchField());
+  // Graphable data.
+  $users = archimedes_value(db_query("SELECT COUNT(uid) FROM {users}")->fetchObject()->count-1, 'dataset')->setTitle('Users');
+  $nodes = archimedes_value(db_query("SELECT COUNT(nid) FROM {node}")->fetchObject()->count, 'dataset')->setTitle('Nodes');
+  $revisions = archimedes_value(db_query("SELECT COUNT(nid) FROM {node_revisions}")->fetchObject()->count, 'dataset')->setTitle('Revisions');
+  $owl->createField('field_c_dataset', array($nodes, $revisions, $users));
 
   $modules = $themes = array();
   foreach (module_list() as $module) {
