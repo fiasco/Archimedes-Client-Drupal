@@ -232,7 +232,7 @@ function archimedes_collect() {
   // Graphable data.
   $users = archimedes_value(db_query("SELECT COUNT(uid) FROM {users}")->fetchObject()->count-1, 'dataset')->setTitle('Users');
   $nodes = archimedes_value(db_query("SELECT COUNT(nid) FROM {node}")->fetchObject()->count, 'dataset')->setTitle('Nodes');
-  $revisions = archimedes_value(db_query("SELECT COUNT(nid) FROM {node_revisions}")->fetchObject()->count, 'dataset')->setTitle('Revisions');
+  $revisions = archimedes_value(db_query("SELECT COUNT(nid) FROM {node_revision}")->fetchObject()->count, 'dataset')->setTitle('Revisions');
   $owl->createField('field_c_dataset', array($nodes, $revisions, $users));
 
   $modules = $themes = array();
