@@ -220,10 +220,10 @@ function archimedes_collect() {
       $owl->createField('field_db_size', $size);
     break;
   }
-  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path() . file_directory_path()));
+  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . file_directory_path()));
   $owl->createField('field_sitedata', $dataSize[0]);
 
-  $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . base_path()));
+  $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root));
   $owl->createField('field_sitesize', $rootSize[0] - $dataSize[0]);
 
   // Graphable data.
