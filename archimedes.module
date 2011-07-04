@@ -128,7 +128,7 @@ function archimedes_export() {
 
 function archimedes_find_root() {
   if (!empty($_SERVER['DOCUMENT_ROOT'])) {
-    $root = $_SERVER['DOCUMENT_ROOT'];
+    $root = $_SERVER['DOCUMENT_ROOT'] . base_path();
   }
   elseif (defined('DRUPAL_ROOT')) {
     $root = DRUPAL_ROOT;
