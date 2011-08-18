@@ -442,12 +442,16 @@ function archimedes_send() {
 
   $owl = archimedes_collect();
   $ekey = $owl->encrypt($server_key);
-  if (call_user_func(array($owl, variable_get('archimedes_send_method', 'postXML')), $destination)) {
+  try {
+    if (!call_user_func(array($owl, variable_get('archimedes_send_method', 'postXML')), $destination)) {
+      throw new Exception('Update failed to send for an unknown reason.');
+    }
     drupal_set_message('Update sent successfully to '  . $destination. '. This may take some time to become visible on the server.');
     variable_set('archimedes_cron_last',time());
   }
-  else {
-    drupal_set_message('Update failed to send for an unknown reason.','error');
+  catch (Exception $e) {
+    drupal_set_message($e->getMessage(), 'error');
+    watchdog('Archimedes', $e->getMessage(), array(), WATCHDOG_ERROR);
   }
 }
 
