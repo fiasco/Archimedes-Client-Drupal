@@ -4,3 +4,4 @@ core = 7.x
 package = "Archimedes"
 version = "7.x-dev"
 dependencies[] = environment
+files[] = archimedes.unsafe.inc
