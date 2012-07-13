@@ -169,7 +169,7 @@ function archimedes_build_report() {
       $database_name = substr($db['path'],1);
       $owl->createField('field_dbname', $database_name);
     }
-    $dbhost = ($db['host'] == 'localhost' || $db['host'] == '127.0.0.1') ? $hostname : $db['host'];
+    $dbhost = ($db['host'] == 'localhost' || $db['host'] == '127.0.0.1') ? 'localhost' : $db['host'];
     $values[] = archimedes_value($dbhost,'nodereference')->addNode(array('title' => $dbhost, 'type' => 'host'));
   }
 

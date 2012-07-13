@@ -59,6 +59,7 @@ function archimedes_cron() {
   $last_run      = variable_get('archimedes_cron_last', FALSE);
   $due_run       = REQUEST_TIME - (variable_get('archimedes_cron_update',1) * 86400);
   if ($last_run === FALSE || $last_run < $due_run) {
+    require_once dirname(__FILE__) . '/archimedes.inc';
     archimedes_send_report();
     variable_set('archimedes_cron_last', REQUEST_TIME);
   }
