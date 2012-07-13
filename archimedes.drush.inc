@@ -34,8 +34,8 @@ function archimedes_drush_command() {
  * Command callback. Output XML.
  */
 function drush_archimedes_arch_xml() {
-  archimedes_load_library();
-  $owl = archimedes_collect();
+  require_once dirname(__FILE__) . '/archimedes.inc';
+  $owl = archimedes_build_report();
   drush_print("\n" . $owl->toXML() . "\n");
 }
 
@@ -43,7 +43,8 @@ function drush_archimedes_arch_xml() {
  * Command callback. Send an update to configured email address.
  */
 function drush_archimedes_arch_send() {
-  archimedes_send();
+  require_once dirname(__FILE__) . '/archimedes.inc';
+  archimedes_send_report();
   $messages = drupal_set_message();
   if (isset($messages['warning'])) {
     drupal_set_message('Try using drush -l http://servername if servername cannot be determined.','warning');

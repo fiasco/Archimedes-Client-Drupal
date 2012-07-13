@@ -70,7 +70,7 @@ function archimedes_admin() {
     '#type' => 'select',
     '#title' => t('Site Environment Type'),
     '#options' => $options,
-    '#default_value' => environment_current(TRUE, 'name'),
+    '#default_value' => environment_current(),
     '#description' => t('This variable is controlled by the Environment module. See !link to alter the environment.', array('!link' => l('the environment admin page', 'admin/config/system/environment'))),
     '#disabled' => TRUE,
   );
@@ -153,7 +153,7 @@ function archimedes_export() {
   * Drupal UI callback to force Archimedes client to send a report.
   */
 function archimedes_send_force() {
-  archimedes_send();
+  archimedes_send_report();
   drupal_goto('admin/reports/archimedes');
 }
 
