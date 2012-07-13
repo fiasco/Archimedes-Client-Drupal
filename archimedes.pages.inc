@@ -143,6 +143,7 @@ function archimedes_out() {
  * Export report in XML to debug report output.
  */
 function archimedes_export() {
+  require_once dirname(__FILE__) . '/archimedes.inc';
   $owl = archimedes_build_report();
 
   return '<pre>' . htmlentities($owl->toXML()) . '</pre>';
@@ -150,9 +151,10 @@ function archimedes_export() {
 } // archimedes_export()
 
 /**
-  * Drupal UI callback to force Archimedes client to send a report.
-  */
+ * Drupal UI callback to force Archimedes client to send a report.
+ */
 function archimedes_send_force() {
+  require_once dirname(__FILE__) . '/archimedes.inc';
   archimedes_send_report();
   drupal_goto('admin/reports/archimedes');
 }
