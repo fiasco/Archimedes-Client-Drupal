@@ -48,16 +48,16 @@ function archimedes_menu() {
     'file' => 'archimedes.pages.inc',
   );
   return $items;
-} // archimedes_menu()
+}
 
 /**
-  * Implementation of hook_cron().
-  */
+ * Implements hook_cron().
+ */
 function archimedes_cron() {
   // This logic is so that Archimedes reports will only run
   // on a configured interval and not everytime cron runs.
   $last_run      = variable_get('archimedes_cron_last', FALSE);
-  $due_run       = REQUEST_TIME - (variable_get('archimedes_cron_update',1) * 86400);
+  $due_run       = REQUEST_TIME - (variable_get('archimedes_cron_update', 1) * 86400);
   if ($last_run === FALSE || $last_run < $due_run) {
     require_once dirname(__FILE__) . '/archimedes.inc';
     archimedes_send_report();
@@ -65,3 +65,14 @@ function archimedes_cron() {
   }
 }
 
+/**
+ * Implements hook_archimedes_id().
+ *
+ * A instance of an Archimedes report should be based
+ * on a single Drupal install which is the environment
+ * it says it is, coupled with the database credentials.
+ */
+function archimedes_archimedes_id() {
+  $environment = environment_current();
+  return variable_get('archimedes_common_key', '') . $environment;
+}

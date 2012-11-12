@@ -45,23 +45,11 @@ function archimedes_load_library() {
 class_exists('Archimedes') || archimedes_load_library();
 
 /**
- * Implementation of hook_archimedes_id().
- *
- * A instance of an Archimedes report should be based
- * on a single Drupal install which is the environment
- * it says it is, coupled with the database credentials.
- */
-function archimedes_archimedes_id() {
-  $environment = environment_current();
-  return variable_get('archimedes_common_key', '') . $environment;
-}
-
-/**
  * Produce a unique value to represent this instance of Drupal.
  */
 function archimedes_get_token() {
   $keys = module_invoke_all('archimedes_id'); sort($keys);
-  return drupal_get_token(implode('|', $keys));
+  return drupal_hmac_base64(implode('|', $keys), drupal_get_private_key() . drupal_get_hash_salt());
 }
 
 /**
@@ -111,9 +99,6 @@ function archimedes_send_report() {
 function archimedes_build_report() {
   global $databases;
 
-  // Produce a unique value to represent this instance of Drupal.
-  $keys = module_invoke_all('archimedes_id'); sort($keys);
-  $unique_id = drupal_get_token(implode('|', $keys));
   $unqiue_id = archimedes_get_token();
 
   $owl = new Archimedes('drupal', variable_get('site_mail', FALSE), $unique_id);
