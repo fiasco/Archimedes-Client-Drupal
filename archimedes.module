@@ -127,11 +127,11 @@ function archimedes_export() {
 } // archimedes_export()
 
 function archimedes_find_root() {
-  if (!empty($_SERVER['DOCUMENT_ROOT'])) {
-    $root = $_SERVER['DOCUMENT_ROOT'] . base_path();
-  }
-  elseif (defined('DRUPAL_ROOT')) {
+  if (defined('DRUPAL_ROOT')) {
     $root = DRUPAL_ROOT;
+  }
+  elseif (!empty($_SERVER['DOCUMENT_ROOT'])) {
+    $root = $_SERVER['DOCUMENT_ROOT'];
   }
   else {
     $root = substr(dirname(__FILE__), 0, strpos(dirname(__FILE__), drupal_get_path('module', 'archimedes')));
@@ -220,11 +220,6 @@ function archimedes_collect() {
       $owl->createField('field_db_size', $size);
     break;
   }
-  $dataSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root . file_directory_path()));
-  $owl->createField('field_sitedata', $dataSize[0]);
-
-  $rootSize = preg_split('/[\s]+/',archimedes_shell_exec("du -bsL " . $root));
-  $owl->createField('field_sitesize', $rootSize[0] - $dataSize[0]);
 
   // Graphable data.
   $users = archimedes_value(db_result(db_query("SELECT COUNT(uid) FROM {users}"))-1, 'dataset')->setTitle('Users');
@@ -286,18 +281,6 @@ function archimedes_collect() {
 
   $environment = environment_current(TRUE, 'label');
   $owl->createField('field_site_env', $environment);
-
-  $drupal_root = archimedes_find_root();
-  $ignore = array('#(\w*/)*sites/\w*/files#', '#.*\.(git|svn|bzr|cvs)/.*#');
-  
-  // The point of the directory hash is to record the state of the deployed code base.
-  // If the code base changes, then the site could have been redeployed or hacked! However,
-  // in development scenarios, the code changes very frequently so we don't care to change
-  // it.
-  $dir_hash = archimedes_directory_hash($drupal_root, $ignore);
-  if(!empty($drupal_root))  {
-    $owl->createField('field_directory_hash', $dir_hash);
-  }
 
   // Allow other modules to add data via hook_archimedes.
   drupal_alter('archimedes', $owl);
@@ -363,7 +346,7 @@ function archimedes_admin() {
 
   $form['archimedes_cron_update'] = array(
     '#type' => 'textfield',
-    '#title' => t('Cron upate every x days'),
+    '#title' => t('Cron update every x days'),
     '#size' => 5,
     '#default_value' => variable_get('archimedes_cron_update', 1),
     '#description' => t('Set Archimedes minimum cron update period.'),
